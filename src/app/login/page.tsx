@@ -40,34 +40,34 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex">
       {/* 左側: ブランドエリア */}
-      <div className="hidden lg:flex lg:w-1/2 bg-stone-100 text-stone-800 p-12 flex-col justify-between">
+      <div className="hidden lg:flex lg:w-1/2 bg-slate-900 text-white p-12 flex-col justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">digitive</h1>
-          <p className="text-stone-400 text-sm mt-1">AI Learning Platform</p>
+          <p className="text-slate-400 text-sm mt-1">AI Learning Platform</p>
         </div>
         <div className="space-y-6">
-          <h2 className="text-4xl font-bold leading-tight text-stone-700">
+          <h2 className="text-4xl font-bold leading-tight">
             AI研修を、<br />もっとスマートに。
           </h2>
-          <p className="text-stone-500 text-lg leading-relaxed max-w-md">
+          <p className="text-slate-300 text-lg leading-relaxed max-w-md">
             レベルに合わせた研修動画で、チーム全体のAIスキルを効率的に向上させましょう。
           </p>
           <div className="flex gap-8 pt-4">
             <div>
-              <p className="text-3xl font-bold text-stone-700">3</p>
-              <p className="text-stone-400 text-sm">学習レベル</p>
+              <p className="text-3xl font-bold">3</p>
+              <p className="text-slate-400 text-sm">学習レベル</p>
             </div>
             <div>
-              <p className="text-3xl font-bold text-stone-700">24/7</p>
-              <p className="text-stone-400 text-sm">いつでも学習</p>
+              <p className="text-3xl font-bold">24/7</p>
+              <p className="text-slate-400 text-sm">いつでも学習</p>
             </div>
           </div>
         </div>
-        <p className="text-stone-400 text-xs">&copy; 2026 digitive inc.</p>
+        <p className="text-slate-500 text-xs">&copy; 2026 digitive inc.</p>
       </div>
 
       {/* 右側: ログインフォーム */}
-      <div className="flex-1 flex items-center justify-center p-6 bg-gray-50">
+      <div className="flex-1 flex items-center justify-center p-6 bg-white">
         <div className="w-full max-w-md">
           <div className="lg:hidden text-center mb-8">
             <h1 className="text-2xl font-bold text-gray-900">digitive</h1>
@@ -112,7 +112,7 @@ export default function LoginPage() {
                 )}
                 <Button
                   type="submit"
-                  className="w-full h-11 bg-stone-800 hover:bg-stone-900 text-white"
+                  className="w-full h-11 bg-slate-900 hover:bg-slate-800 text-white"
                   disabled={loading}
                 >
                   {loading ? "ログイン中..." : "ログイン"}
@@ -120,7 +120,7 @@ export default function LoginPage() {
               </form>
               <div className="mt-6 text-center text-sm text-gray-500">
                 アカウントをお持ちでない方は{" "}
-                <Link href="/register" className="text-stone-700 font-medium hover:underline">
+                <Link href="/register" className="text-slate-900 font-medium hover:underline">
                   新規登録
                 </Link>
               </div>

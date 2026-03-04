@@ -53,23 +53,23 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen flex">
-      <div className="hidden lg:flex lg:w-1/2 bg-stone-100 text-stone-800 p-12 flex-col justify-between">
+      <div className="hidden lg:flex lg:w-1/2 bg-slate-900 text-white p-12 flex-col justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">digitive</h1>
-          <p className="text-stone-400 text-sm mt-1">AI Learning Platform</p>
+          <p className="text-slate-400 text-sm mt-1">AI Learning Platform</p>
         </div>
         <div className="space-y-6">
-          <h2 className="text-4xl font-bold leading-tight text-stone-700">
+          <h2 className="text-4xl font-bold leading-tight">
             チームの成長を<br />加速させる。
           </h2>
-          <p className="text-stone-500 text-lg leading-relaxed max-w-md">
+          <p className="text-slate-300 text-lg leading-relaxed max-w-md">
             初級から上級まで、段階的にAIスキルを習得できる研修プログラムです。
           </p>
         </div>
-        <p className="text-stone-400 text-xs">&copy; 2026 digitive inc.</p>
+        <p className="text-slate-500 text-xs">&copy; 2026 digitive inc.</p>
       </div>
 
-      <div className="flex-1 flex items-center justify-center p-6 bg-gray-50">
+      <div className="flex-1 flex items-center justify-center p-6 bg-white">
         <div className="w-full max-w-md">
           <div className="lg:hidden text-center mb-8">
             <h1 className="text-2xl font-bold text-gray-900">digitive</h1>
@@ -126,7 +126,7 @@ export default function RegisterPage() {
                 )}
                 <Button
                   type="submit"
-                  className="w-full h-11 bg-stone-800 hover:bg-stone-900 text-white"
+                  className="w-full h-11 bg-slate-900 hover:bg-slate-800 text-white"
                   disabled={loading}
                 >
                   {loading ? "登録中..." : "アカウントを作成"}
@@ -134,7 +134,7 @@ export default function RegisterPage() {
               </form>
               <div className="mt-6 text-center text-sm text-gray-500">
                 すでにアカウントをお持ちの方は{" "}
-                <Link href="/login" className="text-stone-700 font-medium hover:underline">
+                <Link href="/login" className="text-slate-900 font-medium hover:underline">
                   ログイン
                 </Link>
               </div>
