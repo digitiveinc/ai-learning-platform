@@ -13,7 +13,13 @@ export async function POST() {
   }
 
   const cookieStore = await cookies();
-  cookieStore.delete("appwrite-session");
+  cookieStore.set("appwrite-session", "", {
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 0,
+  });
 
   return NextResponse.json({ success: true });
 }
