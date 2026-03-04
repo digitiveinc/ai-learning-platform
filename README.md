@@ -1,2 +1,1 @@
-# ai-learning-platform
-研修プラットフォーム
+# ai_learn
