@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getUser, getUserRole, createAdminClient } from "@/lib/appwrite/server";
+import { requireAuth } from "@/lib/appwrite/auth-guard";
+import { createAdminClient } from "@/lib/appwrite/server";
 import { APPWRITE_DATABASE_ID, APPWRITE_VIDEOS_COLLECTION_ID } from "@/lib/appwrite/config";
 import { Header } from "@/components/header";
 import { Badge } from "@/components/ui/badge";
@@ -17,8 +18,7 @@ export default async function VideoPlayerPage({
   params: Promise<{ level: string; id: string }>;
 }) {
   const { level, id } = await params;
-  const user = await getUser();
-  const role = await getUserRole(user!.$id);
+  const { user, role } = await requireAuth();
 
   const { databases } = createAdminClient();
 

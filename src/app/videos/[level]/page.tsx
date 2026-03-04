@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Query } from "node-appwrite";
-import { getUser, getUserRole, createAdminClient } from "@/lib/appwrite/server";
+import { requireAuth } from "@/lib/appwrite/auth-guard";
+import { createAdminClient } from "@/lib/appwrite/server";
 import { APPWRITE_DATABASE_ID, APPWRITE_VIDEOS_COLLECTION_ID } from "@/lib/appwrite/config";
 import { Header } from "@/components/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,8 +27,7 @@ export default async function VideoListPage({
   }
 
   const typedLevel = level as Video["level"];
-  const user = await getUser();
-  const role = await getUserRole(user!.$id);
+  const { user, role } = await requireAuth();
 
   const { databases } = createAdminClient();
   const response = await databases.listDocuments(

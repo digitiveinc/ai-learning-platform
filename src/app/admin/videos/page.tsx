@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Query } from "node-appwrite";
-import { getUser, getUserRole, createAdminClient } from "@/lib/appwrite/server";
+import { requireAdmin } from "@/lib/appwrite/auth-guard";
+import { createAdminClient } from "@/lib/appwrite/server";
 import { APPWRITE_DATABASE_ID, APPWRITE_VIDEOS_COLLECTION_ID } from "@/lib/appwrite/config";
 import { Header } from "@/components/header";
 import { Button } from "@/components/ui/button";
@@ -20,8 +21,7 @@ import type { Video } from "@/lib/types";
 export const dynamic = "force-dynamic";
 
 export default async function AdminVideosPage() {
-  const user = await getUser();
-  const role = await getUserRole(user!.$id);
+  const { user, role } = await requireAdmin();
 
   const { databases } = createAdminClient();
   const response = await databases.listDocuments(

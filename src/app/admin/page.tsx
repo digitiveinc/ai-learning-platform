@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { getUser, getUserRole, createAdminClient } from "@/lib/appwrite/server";
+import { requireAdmin } from "@/lib/appwrite/auth-guard";
+import { createAdminClient } from "@/lib/appwrite/server";
 import { APPWRITE_DATABASE_ID, APPWRITE_VIDEOS_COLLECTION_ID } from "@/lib/appwrite/config";
 import { Header } from "@/components/header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,8 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
-  const user = await getUser();
-  const role = await getUserRole(user!.$id);
+  const { user, role } = await requireAdmin();
 
   const { databases, users } = createAdminClient();
 

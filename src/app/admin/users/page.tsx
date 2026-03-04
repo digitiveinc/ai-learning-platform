@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { getUser, getUserRole, createAdminClient } from "@/lib/appwrite/server";
+import { requireAdmin } from "@/lib/appwrite/auth-guard";
+import { createAdminClient } from "@/lib/appwrite/server";
 import { Header } from "@/components/header";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -15,8 +16,7 @@ import { RoleToggleButton } from "./role-toggle";
 export const dynamic = "force-dynamic";
 
 export default async function AdminUsersPage() {
-  const currentUser = await getUser();
-  const role = await getUserRole(currentUser!.$id);
+  const { user: currentUser, role } = await requireAdmin();
 
   const { users } = createAdminClient();
   const usersRes = await users.list();

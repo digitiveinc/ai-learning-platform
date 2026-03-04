@@ -1,13 +1,12 @@
 import Link from "next/link";
-import { getUser, getUserRole } from "@/lib/appwrite/server";
+import { requireAdmin } from "@/lib/appwrite/auth-guard";
 import { Header } from "@/components/header";
 import { VideoForm } from "@/components/video-form";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewVideoPage() {
-  const user = await getUser();
-  const role = await getUserRole(user!.$id);
+  const { user, role } = await requireAdmin();
 
   return (
     <div className="min-h-screen bg-gray-50">

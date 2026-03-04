@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Query } from "node-appwrite";
-import { getUser, getUserRole, createAdminClient } from "@/lib/appwrite/server";
+import { requireAuth } from "@/lib/appwrite/auth-guard";
+import { createAdminClient } from "@/lib/appwrite/server";
 import { APPWRITE_DATABASE_ID, APPWRITE_VIDEOS_COLLECTION_ID } from "@/lib/appwrite/config";
 import { Header } from "@/components/header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,8 +33,7 @@ const levels = [
 ];
 
 export default async function DashboardPage() {
-  const user = await getUser();
-  const role = await getUserRole(user!.$id);
+  const { user, role } = await requireAuth();
 
   const { databases } = createAdminClient();
   const response = await databases.listDocuments(
