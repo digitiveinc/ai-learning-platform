@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -38,50 +38,96 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl">ログイン</CardTitle>
-          <CardDescription>研修動画プラットフォーム</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">メールアドレス</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="email@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
+    <div className="min-h-screen flex">
+      {/* 左側: ブランドエリア */}
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 text-white p-12 flex-col justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">digitive</h1>
+          <p className="text-indigo-200 text-sm mt-1">AI Learning Platform</p>
+        </div>
+        <div className="space-y-6">
+          <h2 className="text-4xl font-bold leading-tight">
+            AI研修を、<br />もっとスマートに。
+          </h2>
+          <p className="text-indigo-100 text-lg leading-relaxed max-w-md">
+            レベルに合わせた研修動画で、チーム全体のAIスキルを効率的に向上させましょう。
+          </p>
+          <div className="flex gap-8 pt-4">
+            <div>
+              <p className="text-3xl font-bold">3</p>
+              <p className="text-indigo-200 text-sm">学習レベル</p>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">パスワード</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
+            <div>
+              <p className="text-3xl font-bold">24/7</p>
+              <p className="text-indigo-200 text-sm">いつでも学習</p>
             </div>
-            {error && (
-              <p className="text-sm text-red-600">{error}</p>
-            )}
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "ログイン中..." : "ログイン"}
-            </Button>
-          </form>
-          <div className="mt-4 text-center text-sm text-gray-600">
-            アカウントをお持ちでない方は{" "}
-            <Link href="/register" className="text-blue-600 hover:underline">
-              新規登録
-            </Link>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+        <p className="text-indigo-300 text-xs">&copy; 2026 digitive inc.</p>
+      </div>
+
+      {/* 右側: ログインフォーム */}
+      <div className="flex-1 flex items-center justify-center p-6 bg-gray-50">
+        <div className="w-full max-w-md">
+          <div className="lg:hidden text-center mb-8">
+            <h1 className="text-2xl font-bold text-gray-900">digitive</h1>
+            <p className="text-gray-500 text-sm">AI Learning Platform</p>
+          </div>
+
+          <Card className="shadow-lg border-0">
+            <CardHeader className="pb-4">
+              <h2 className="text-2xl font-semibold text-center">ログイン</h2>
+              <p className="text-sm text-gray-500 text-center">アカウント情報を入力してください</p>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleLogin} className="space-y-5">
+                <div className="space-y-2">
+                  <Label htmlFor="email">メールアドレス</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="name@company.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="h-11"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password">パスワード</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="8文字以上"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="h-11"
+                    required
+                  />
+                </div>
+                {error && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+                    <p className="text-sm text-red-700">{error}</p>
+                  </div>
+                )}
+                <Button
+                  type="submit"
+                  className="w-full h-11 bg-indigo-600 hover:bg-indigo-700 text-white"
+                  disabled={loading}
+                >
+                  {loading ? "ログイン中..." : "ログイン"}
+                </Button>
+              </form>
+              <div className="mt-6 text-center text-sm text-gray-500">
+                アカウントをお持ちでない方は{" "}
+                <Link href="/register" className="text-indigo-600 font-medium hover:underline">
+                  新規登録
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }
