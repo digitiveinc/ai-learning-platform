@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { Query } from "node-appwrite";
-import { createAdminClient } from "@/lib/appwrite/server";
-import { APPWRITE_ENDPOINT, APPWRITE_PROJECT_ID } from "@/lib/appwrite/config";
+import { APPWRITE_ENDPOINT, APPWRITE_PROJECT_ID, APPWRITE_API_KEY } from "@/lib/appwrite/config";
 
 export async function POST(request: Request) {
   const { email, password } = await request.json();
@@ -15,29 +13,29 @@ export async function POST(request: Request) {
   }
 
   try {
-    // まず REST API でセッション作成を試みる（パスワード検証付き）
-    const sessionRes = await fetch(`${APPWRITE_ENDPOINT}/account/sessions/email`, {
+    // Appwrite REST API に直接リクエスト（API キーでプラットフォーム制限バイパス）
+    const res = await fetch(`${APPWRITE_ENDPOINT}/account/sessions/email`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "x-appwrite-project": APPWRITE_PROJECT_ID,
+        "x-appwrite-key": APPWRITE_API_KEY,
       },
       body: JSON.stringify({ email, password }),
     });
 
-    if (!sessionRes.ok) {
-      const errorData = await sessionRes.json();
-      console.error("Appwrite session error:", errorData);
+    const data = await res.json();
+
+    if (!res.ok) {
+      console.error("Appwrite login error:", JSON.stringify(data));
       return NextResponse.json(
-        { error: "メールアドレスまたはパスワードが正しくありません" },
+        { error: data.message || "メールアドレスまたはパスワードが正しくありません" },
         { status: 401 }
       );
     }
 
-    const session = await sessionRes.json();
-
     const cookieStore = await cookies();
-    cookieStore.set("appwrite-session", session.secret, {
+    cookieStore.set("appwrite-session", data.secret, {
       httpOnly: true,
       secure: true,
       sameSite: "lax",
@@ -46,31 +44,11 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ success: true });
-  } catch (err: unknown) {
+  } catch (err) {
     console.error("Login error:", err);
-
-    // REST API 失敗の場合、admin SDK 経由でフォールバック
-    try {
-      const { users } = createAdminClient();
-      const userList = await users.list([Query.equal("email", [email])]);
-
-      if (userList.total === 0) {
-        return NextResponse.json(
-          { error: "メールアドレスまたはパスワードが正しくありません" },
-          { status: 401 }
-        );
-      }
-
-      // Admin SDK でセッション作成（パスワード検証はREST APIで失敗済み）
-      return NextResponse.json(
-        { error: "ログインに失敗しました。しばらくしてからお試しください。" },
-        { status: 500 }
-      );
-    } catch {
-      return NextResponse.json(
-        { error: "ログインに失敗しました" },
-        { status: 500 }
-      );
-    }
+    return NextResponse.json(
+      { error: "ログインに失敗しました" },
+      { status: 500 }
+    );
   }
 }
