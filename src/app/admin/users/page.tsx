@@ -24,7 +24,7 @@ import { UserDeleteButton } from "./user-delete-button";
 export const dynamic = "force-dynamic";
 
 export default async function AdminUsersPage() {
-  const { user: currentUser, role } = await requireAdmin();
+  const { user: currentUser, role, companyId } = await requireAdmin();
   const currentEmployeeId = await getUserEmployeeId(currentUser.$id);
 
   const { users, databases } = createAdminClient();
@@ -40,19 +40,36 @@ export default async function AdminUsersPage() {
     settingsRes.documents.map((d) => [d.user_id, d])
   );
 
-  const userList = usersRes.users.map((u) => {
-    const settings = settingsMap.get(u.$id);
-    const level = getUserLevel(u.labels || []);
-    return {
-      id: u.$id,
-      employeeId: settings?.employee_id || emailToEmployeeId(u.email),
-      displayName: u.name || "",
-      role: u.labels?.includes("admin") ? "admin" : "user",
-      level,
-      accessMode: settings?.access_mode || "cumulative",
-      createdAt: u.$createdAt,
-    };
-  });
+  const userList = usersRes.users
+    .map((u) => {
+      const settings = settingsMap.get(u.$id);
+      const level = getUserLevel(u.labels || []);
+      return {
+        id: u.$id,
+        employeeId: settings?.employee_id || emailToEmployeeId(u.email),
+        displayName: u.name || "",
+        role: u.labels?.includes("superadmin")
+          ? "superadmin"
+          : u.labels?.includes("admin")
+            ? "admin"
+            : "user",
+        level,
+        accessMode: settings?.access_mode || "cumulative",
+        companyId: settings?.company_id || "",
+        createdAt: u.$createdAt,
+      };
+    })
+    // adminはcompanyId でフィルタ、superadminは全ユーザー
+    .filter((u) => {
+      if (role === "superadmin") return true;
+      return u.companyId === companyId;
+    });
+
+  const roleLabels: Record<string, string> = {
+    superadmin: "スーパー管理者",
+    admin: "管理者",
+    user: "一般",
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -90,9 +107,10 @@ export default async function AdminUsersPage() {
                   <TableCell>{u.displayName || "-"}</TableCell>
                   <TableCell>
                     <Badge
-                      variant={u.role === "admin" ? "default" : "secondary"}
+                      variant={u.role === "user" ? "secondary" : "default"}
+                      className={u.role === "superadmin" ? "bg-amber-100 text-amber-800" : ""}
                     >
-                      {u.role === "admin" ? "管理者" : "一般"}
+                      {roleLabels[u.role]}
                     </Badge>
                   </TableCell>
                   <TableCell>

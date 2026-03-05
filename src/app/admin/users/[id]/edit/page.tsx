@@ -8,6 +8,7 @@ import { UserForm } from "@/components/user-form";
 import {
   APPWRITE_DATABASE_ID,
   APPWRITE_USER_SETTINGS_COLLECTION_ID,
+  APPWRITE_COMPANIES_COLLECTION_ID,
 } from "@/lib/appwrite/config";
 import { emailToEmployeeId } from "@/lib/appwrite/employee-id";
 
@@ -19,7 +20,7 @@ export default async function EditUserPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { user: currentUser, role } = await requireAdmin();
+  const { user: currentUser, role, companyId } = await requireAdmin();
   const currentEmployeeId = await getUserEmployeeId(currentUser.$id);
 
   const { users, databases } = createAdminClient();
@@ -40,7 +41,26 @@ export default async function EditUserPage({
 
   const targetEmployeeId = settings?.employee_id || emailToEmployeeId(targetUser.email);
   const userLevel = getUserLevel(targetUser.labels || []);
-  const userRole = targetUser.labels?.includes("admin") ? "admin" : "user";
+  const userRole = targetUser.labels?.includes("superadmin")
+    ? "superadmin"
+    : targetUser.labels?.includes("admin")
+      ? "admin"
+      : "user";
+
+  // superadminの場合は企業一覧を取得
+  let companies: { id: string; company_name: string; company_code: string }[] = [];
+  if (role === "superadmin") {
+    const res = await databases.listDocuments(
+      APPWRITE_DATABASE_ID,
+      APPWRITE_COMPANIES_COLLECTION_ID,
+      [Query.equal("is_active", true), Query.limit(100)]
+    );
+    companies = res.documents.map((d) => ({
+      id: d.$id,
+      company_name: d.company_name,
+      company_code: d.company_code,
+    }));
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -52,6 +72,9 @@ export default async function EditUserPage({
         <div className="mt-4">
           <UserForm
             mode="edit"
+            currentRole={role}
+            currentCompanyId={companyId}
+            companies={companies}
             initialData={{
               id,
               employeeId: targetEmployeeId,
@@ -59,6 +82,7 @@ export default async function EditUserPage({
               level: userLevel || "beginner",
               accessMode: settings?.access_mode || "cumulative",
               role: userRole,
+              companyId: settings?.company_id || "",
             }}
           />
         </div>

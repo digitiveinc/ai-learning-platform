@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { ID } from "node-appwrite";
 import { createAdminClient } from "@/lib/appwrite/server";
-import { getUser, getUserRole } from "@/lib/appwrite/server";
+import { getUser, getUserRole, getUserCompanyId } from "@/lib/appwrite/server";
 import {
   APPWRITE_DATABASE_ID,
   APPWRITE_USER_SETTINGS_COLLECTION_ID,
 } from "@/lib/appwrite/config";
 import { employeeIdToEmail } from "@/lib/appwrite/employee-id";
+import { getCompanyByCode } from "@/lib/appwrite/server";
 
 export async function POST(request: Request) {
   const currentUser = await getUser();
@@ -14,11 +15,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   }
   const role = await getUserRole(currentUser.$id);
-  if (role !== "admin") {
+  if (role !== "admin" && role !== "superadmin") {
     return NextResponse.json({ error: "管理者権限が必要です" }, { status: 403 });
   }
 
-  const { employeeId, password, displayName, level, accessMode } = await request.json();
+  const { employeeId, password, displayName, level, accessMode, companyId } = await request.json();
 
   if (!employeeId || !password) {
     return NextResponse.json(
@@ -39,7 +40,29 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "無効なレベルです" }, { status: 400 });
   }
 
-  const email = employeeIdToEmail(employeeId);
+  // 会社ID決定: superadminは指定可能、adminは自社のみ
+  let targetCompanyId = companyId;
+  if (role !== "superadmin") {
+    targetCompanyId = await getUserCompanyId(currentUser.$id);
+  }
+
+  // 会社のcompany_codeを取得（メール生成用）
+  let companyCode: string | undefined;
+  if (targetCompanyId) {
+    const { databases } = createAdminClient();
+    try {
+      const companyDoc = await databases.getDocument(
+        APPWRITE_DATABASE_ID,
+        "companies",
+        targetCompanyId
+      );
+      companyCode = companyDoc.company_code;
+    } catch {
+      // company_codeが取得できない場合はフォールバック
+    }
+  }
+
+  const email = employeeIdToEmail(employeeId, companyCode);
 
   try {
     const { users, databases } = createAdminClient();
@@ -68,6 +91,7 @@ export async function POST(request: Request) {
         employee_id: employeeId.toUpperCase(),
         access_mode: accessMode || "cumulative",
         display_name: displayName || "",
+        company_id: targetCompanyId || "",
       }
     );
 

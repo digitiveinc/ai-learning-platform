@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
 export default function LoginPage() {
+  const [companyCode, setCompanyCode] = useState("");
   const [employeeId, setEmployeeId] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -22,7 +23,7 @@ export default function LoginPage() {
     const res = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ employeeId, password }),
+      body: JSON.stringify({ companyCode, employeeId, password }),
     });
 
     if (!res.ok) {
@@ -76,10 +77,22 @@ export default function LoginPage() {
           <Card className="shadow-lg border-0">
             <CardHeader className="pb-4">
               <h2 className="text-2xl font-semibold text-center">ログイン</h2>
-              <p className="text-sm text-gray-500 text-center">社員IDとパスワードを入力してください</p>
+              <p className="text-sm text-gray-500 text-center">企業コード・社員ID・パスワードを入力してください</p>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleLogin} className="space-y-5">
+                <div className="space-y-2">
+                  <Label htmlFor="companyCode">企業コード</Label>
+                  <Input
+                    id="companyCode"
+                    type="text"
+                    placeholder="例: DGT001"
+                    value={companyCode}
+                    onChange={(e) => setCompanyCode(e.target.value)}
+                    className="h-11"
+                    required
+                  />
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="employeeId">社員ID</Label>
                   <Input
@@ -118,7 +131,7 @@ export default function LoginPage() {
                 </Button>
               </form>
               <div className="mt-6 text-center text-sm text-gray-400">
-                管理者から発行された社員IDでログインしてください
+                管理者から発行された企業コードと社員IDでログインしてください
               </div>
             </CardContent>
           </Card>

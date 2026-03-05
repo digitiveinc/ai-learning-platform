@@ -6,6 +6,7 @@ import {
   APPWRITE_API_KEY,
   APPWRITE_DATABASE_ID,
   APPWRITE_USER_SETTINGS_COLLECTION_ID,
+  APPWRITE_COMPANIES_COLLECTION_ID,
 } from "./config";
 import type { UserSettings, Video } from "../types";
 import { getAccessibleLevels } from "../types";
@@ -55,12 +56,14 @@ export async function getUser() {
   }
 }
 
-// ユーザーのロールを取得
+// ユーザーのロールを取得（super_admin > admin > user）
 export async function getUserRole(userId: string): Promise<string> {
   try {
     const { users } = createAdminClient();
     const user = await users.get(userId);
-    return user.labels?.includes("admin") ? "admin" : "user";
+    if (user.labels?.includes("superadmin")) return "superadmin";
+    if (user.labels?.includes("admin")) return "admin";
+    return "user";
   } catch {
     return "user";
   }
@@ -91,6 +94,7 @@ export async function getUserSettings(userId: string): Promise<UserSettings | nu
       employee_id: doc.employee_id,
       access_mode: doc.access_mode,
       display_name: doc.display_name || undefined,
+      company_id: doc.company_id || undefined,
     };
   } catch {
     return null;
@@ -101,7 +105,7 @@ export async function getUserSettings(userId: string): Promise<UserSettings | nu
 export async function getUserAccessibleLevels(userId: string): Promise<Video["level"][]> {
   const { users } = createAdminClient();
   const user = await users.get(userId);
-  const isAdmin = user.labels?.includes("admin");
+  const isAdmin = user.labels?.includes("admin") || user.labels?.includes("superadmin");
   if (isAdmin) return ["beginner", "intermediate", "advanced"];
 
   const level = getUserLevel(user.labels || []);
@@ -120,4 +124,33 @@ export async function getUserEmployeeId(userId: string): Promise<string> {
   const { users } = createAdminClient();
   const user = await users.get(userId);
   return emailToEmployeeId(user.email);
+}
+
+// ユーザーのcompany_idを取得
+export async function getUserCompanyId(userId: string): Promise<string | undefined> {
+  const settings = await getUserSettings(userId);
+  return settings?.company_id || undefined;
+}
+
+// 会社コードから会社を取得
+export async function getCompanyByCode(companyCode: string) {
+  try {
+    const { databases } = createAdminClient();
+    const res = await databases.listDocuments(
+      APPWRITE_DATABASE_ID,
+      APPWRITE_COMPANIES_COLLECTION_ID,
+      [Query.equal("company_code", companyCode.toUpperCase()), Query.limit(1)]
+    );
+    if (res.documents.length === 0) return null;
+    const doc = res.documents[0];
+    return {
+      id: doc.$id,
+      company_name: doc.company_name,
+      company_code: doc.company_code,
+      is_active: doc.is_active,
+      created_at: doc.created_at,
+    };
+  } catch {
+    return null;
+  }
 }

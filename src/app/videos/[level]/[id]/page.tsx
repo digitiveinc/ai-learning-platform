@@ -11,7 +11,7 @@ import {
 import { Header } from "@/components/header";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { WatchToggle } from "@/components/watch-toggle";
+import { YouTubePlayer } from "@/components/youtube-player";
 import { LEVEL_LABELS, LEVEL_COLORS } from "@/lib/types";
 import { extractYouTubeId } from "@/lib/youtube";
 import type { Video } from "@/lib/types";
@@ -54,7 +54,9 @@ export default async function VideoPlayerPage({
       Query.limit(1),
     ]
   );
-  const watched = progressRes.documents.length > 0 && progressRes.documents[0].watched;
+  const progressDoc = progressRes.documents[0];
+  const watched = progressDoc?.watched || false;
+  const currentProgress = progressDoc?.progress || 0;
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -68,26 +70,27 @@ export default async function VideoPlayerPage({
 
         <div className="bg-white rounded-lg shadow-sm overflow-hidden">
           {videoYtId && (
-            <div className="aspect-video w-full">
-              <iframe
-                src={`https://www.youtube.com/embed/${videoYtId}`}
-                title={video.title}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                className="w-full h-full"
-              />
-            </div>
+            <YouTubePlayer
+              videoId={videoYtId}
+              videoDbId={id}
+              initialProgress={currentProgress}
+            />
           )}
 
           <div className="p-6">
-            <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
-              <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-bold">{video.title}</h1>
-                <Badge className={LEVEL_COLORS[typedLevel]}>
-                  {LEVEL_LABELS[typedLevel]}
-                </Badge>
-              </div>
-              <WatchToggle videoId={id} initialWatched={watched} />
+            <div className="flex items-center gap-3 mb-4">
+              <h1 className="text-2xl font-bold">{video.title}</h1>
+              <Badge className={LEVEL_COLORS[typedLevel]}>
+                {LEVEL_LABELS[typedLevel]}
+              </Badge>
+              {watched && (
+                <span className="inline-flex items-center gap-1 text-sm text-emerald-600 font-medium">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  視聴済み
+                </span>
+              )}
             </div>
 
             <Separator className="my-4" />

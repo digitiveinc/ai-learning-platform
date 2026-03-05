@@ -14,8 +14,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+type CompanyOption = {
+  id: string;
+  company_name: string;
+  company_code: string;
+};
+
 type UserFormProps = {
   mode: "create" | "edit";
+  currentRole?: string;
+  currentCompanyId?: string;
+  companies?: CompanyOption[];
   initialData?: {
     id: string;
     employeeId: string;
@@ -23,19 +32,23 @@ type UserFormProps = {
     level: string;
     accessMode: string;
     role: string;
+    companyId?: string;
   };
 };
 
-export function UserForm({ mode, initialData }: UserFormProps) {
+export function UserForm({ mode, currentRole, currentCompanyId, companies = [], initialData }: UserFormProps) {
   const [employeeId, setEmployeeId] = useState(initialData?.employeeId || "");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState(initialData?.displayName || "");
   const [level, setLevel] = useState(initialData?.level || "beginner");
   const [accessMode, setAccessMode] = useState(initialData?.accessMode || "cumulative");
   const [role, setRole] = useState(initialData?.role || "user");
+  const [companyId, setCompanyId] = useState(initialData?.companyId || currentCompanyId || "");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+
+  const isSuperAdmin = currentRole === "superadmin";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,7 +60,7 @@ export function UserForm({ mode, initialData }: UserFormProps) {
         const res = await fetch("/api/admin/users", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ employeeId, password, displayName, level, accessMode }),
+          body: JSON.stringify({ employeeId, password, displayName, level, accessMode, companyId }),
         });
         const data = await res.json();
         if (!res.ok) {
@@ -65,6 +78,7 @@ export function UserForm({ mode, initialData }: UserFormProps) {
             accessMode,
             role,
             ...(password ? { password } : {}),
+            ...(isSuperAdmin ? { companyId } : {}),
           }),
         });
         const data = await res.json();
@@ -89,6 +103,24 @@ export function UserForm({ mode, initialData }: UserFormProps) {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-5">
+          {isSuperAdmin && companies.length > 0 && (
+            <div className="space-y-2">
+              <Label>企業</Label>
+              <Select value={companyId} onValueChange={setCompanyId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="企業を選択" />
+                </SelectTrigger>
+                <SelectContent>
+                  {companies.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.company_code} - {c.company_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="employeeId">社員ID</Label>
             <Input
@@ -162,6 +194,9 @@ export function UserForm({ mode, initialData }: UserFormProps) {
                 <SelectContent>
                   <SelectItem value="user">一般</SelectItem>
                   <SelectItem value="admin">管理者</SelectItem>
+                  {isSuperAdmin && (
+                    <SelectItem value="superadmin">スーパー管理者</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>

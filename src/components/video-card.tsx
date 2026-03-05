@@ -10,9 +10,10 @@ type VideoCardProps = {
   youtubeUrl: string;
   level: string;
   watched?: boolean;
+  progress?: number;
 };
 
-export function VideoCard({ id, title, description, youtubeUrl, level, watched }: VideoCardProps) {
+export function VideoCard({ id, title, description, youtubeUrl, level, watched, progress = 0 }: VideoCardProps) {
   const videoId = extractYouTubeId(youtubeUrl);
 
   return (
@@ -37,6 +38,15 @@ export function VideoCard({ id, title, description, youtubeUrl, level, watched }
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
               </svg>
+            </div>
+          )}
+          {/* 進捗バー */}
+          {progress > 0 && !watched && (
+            <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/20">
+              <div
+                className="h-full bg-emerald-400"
+                style={{ width: `${progress}%` }}
+              />
             </div>
           )}
         </div>

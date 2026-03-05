@@ -1,7 +1,7 @@
 export type Profile = {
   id: string;
   email: string;
-  role: "admin" | "user";
+  role: "superadmin" | "admin" | "user";
   created_at: string;
 };
 
@@ -21,6 +21,7 @@ export type UserSettings = {
   employee_id: string;
   access_mode: "exact" | "cumulative";
   display_name?: string;
+  company_id?: string;
 };
 
 export type WatchProgress = {
@@ -28,6 +29,25 @@ export type WatchProgress = {
   video_id: string;
   watched: boolean;
   watched_at?: string;
+  progress?: number;
+};
+
+export type Company = {
+  id: string;
+  company_name: string;
+  company_code: string;
+  is_active: boolean;
+  created_at: string;
+};
+
+export type Inquiry = {
+  id: string;
+  user_id: string;
+  user_name: string;
+  subject: string;
+  message: string;
+  status: "open" | "in_progress" | "resolved";
+  created_at: string;
 };
 
 export const LEVEL_LABELS: Record<Video["level"], string> = {

@@ -40,7 +40,13 @@ export function Header({ email, role, employeeId }: HeaderProps) {
             >
               ダッシュボード
             </Link>
-            {role === "admin" && (
+            <Link
+              href="/inquiry"
+              className="px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+            >
+              サポート
+            </Link>
+            {(role === "admin" || role === "superadmin") && (
               <Link
                 href="/admin"
                 className="px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"

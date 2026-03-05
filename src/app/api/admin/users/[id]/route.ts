@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { Query } from "node-appwrite";
-import { createAdminClient, getUser, getUserRole } from "@/lib/appwrite/server";
+import { createAdminClient, getUser, getUserRole, getUserCompanyId } from "@/lib/appwrite/server";
 import {
   APPWRITE_DATABASE_ID,
   APPWRITE_USER_SETTINGS_COLLECTION_ID,
@@ -13,10 +13,18 @@ async function requireAdminApi() {
     return { error: NextResponse.json({ error: "認証が必要です" }, { status: 401 }) };
   }
   const role = await getUserRole(currentUser.$id);
-  if (role !== "admin") {
+  if (role !== "admin" && role !== "superadmin") {
     return { error: NextResponse.json({ error: "管理者権限が必要です" }, { status: 403 }) };
   }
-  return { currentUser };
+  const companyId = await getUserCompanyId(currentUser.$id);
+  return { currentUser, role, companyId };
+}
+
+// 会社スコープチェック
+async function checkCompanyScope(targetUserId: string, adminRole: string, adminCompanyId?: string) {
+  if (adminRole === "superadmin") return true;
+  const targetCompanyId = await getUserCompanyId(targetUserId);
+  return targetCompanyId === adminCompanyId;
 }
 
 export async function PUT(
@@ -27,7 +35,13 @@ export async function PUT(
   if ("error" in auth && auth.error) return auth.error;
 
   const { id } = await params;
-  const { displayName, level, accessMode, password, role } = await request.json();
+
+  // 会社スコープチェック
+  if (!await checkCompanyScope(id, auth.role!, auth.companyId)) {
+    return NextResponse.json({ error: "このユーザーを編集する権限がありません" }, { status: 403 });
+  }
+
+  const { displayName, level, accessMode, password, role, companyId } = await request.json();
 
   try {
     const { users, databases } = createAdminClient();
@@ -40,8 +54,18 @@ export async function PUT(
         (l: string) => !["beginner", "intermediate", "advanced"].includes(l)
       );
       if (level) newLabels.push(level);
-      if (role === "admin" && !newLabels.includes("admin")) newLabels.push("admin");
-      if (role === "user") newLabels = newLabels.filter((l: string) => l !== "admin");
+
+      // ロール更新
+      if (role === "superadmin") {
+        newLabels = newLabels.filter((l: string) => l !== "admin");
+        if (!newLabels.includes("superadmin")) newLabels.push("superadmin");
+      } else if (role === "admin") {
+        newLabels = newLabels.filter((l: string) => l !== "superadmin");
+        if (!newLabels.includes("admin")) newLabels.push("admin");
+      } else if (role === "user") {
+        newLabels = newLabels.filter((l: string) => l !== "admin" && l !== "superadmin");
+      }
+
       await users.updateLabels(id, newLabels);
     }
 
@@ -62,6 +86,7 @@ export async function PUT(
       const updateData: Record<string, string> = {};
       if (displayName !== undefined) updateData.display_name = displayName;
       if (accessMode) updateData.access_mode = accessMode;
+      if (companyId !== undefined) updateData.company_id = companyId;
       if (Object.keys(updateData).length > 0) {
         await databases.updateDocument(
           APPWRITE_DATABASE_ID,
@@ -93,6 +118,11 @@ export async function DELETE(
   if ("error" in auth && auth.error) return auth.error;
 
   const { id } = await params;
+
+  // 会社スコープチェック
+  if (!await checkCompanyScope(id, auth.role!, auth.companyId)) {
+    return NextResponse.json({ error: "このユーザーを削除する権限がありません" }, { status: 403 });
+  }
 
   try {
     const { users, databases } = createAdminClient();

@@ -57,14 +57,15 @@ export default async function VideoListPage({
     APPWRITE_WATCH_PROGRESS_COLLECTION_ID,
     [
       Query.equal("user_id", user.$id),
-      Query.equal("watched", true),
       Query.limit(500),
     ]
   );
-  const watchedVideoIds = new Set(progressRes.documents.map((d) => d.video_id));
+  const progressMap = new Map(
+    progressRes.documents.map((d) => [d.video_id, { watched: d.watched, progress: d.progress || 0 }])
+  );
 
   const videoList = response.documents;
-  const watchedCount = videoList.filter((v) => watchedVideoIds.has(v.$id)).length;
+  const watchedCount = videoList.filter((v) => progressMap.get(v.$id)?.watched).length;
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -93,17 +94,21 @@ export default async function VideoListPage({
 
         {videoList.length > 0 ? (
           <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-            {videoList.map((video) => (
-              <VideoCard
-                key={video.$id}
-                id={video.$id}
-                title={video.title}
-                description={video.description}
-                youtubeUrl={video.youtube_url}
-                level={level}
-                watched={watchedVideoIds.has(video.$id)}
-              />
-            ))}
+            {videoList.map((video) => {
+              const p = progressMap.get(video.$id);
+              return (
+                <VideoCard
+                  key={video.$id}
+                  id={video.$id}
+                  title={video.title}
+                  description={video.description}
+                  youtubeUrl={video.youtube_url}
+                  level={level}
+                  watched={p?.watched || false}
+                  progress={p?.progress || 0}
+                />
+              );
+            })}
           </div>
         ) : (
           <p className="text-gray-500">このレベルの動画はまだ登録されていません。</p>

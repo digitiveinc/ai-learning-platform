@@ -2,18 +2,34 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { APPWRITE_ENDPOINT, APPWRITE_PROJECT_ID, APPWRITE_API_KEY } from "@/lib/appwrite/config";
 import { employeeIdToEmail } from "@/lib/appwrite/employee-id";
+import { getCompanyByCode } from "@/lib/appwrite/server";
 
 export async function POST(request: Request) {
-  const { employeeId, password } = await request.json();
+  const { companyCode, employeeId, password } = await request.json();
 
-  if (!employeeId || !password) {
+  if (!companyCode || !employeeId || !password) {
     return NextResponse.json(
-      { error: "社員IDとパスワードは必須です" },
+      { error: "企業コード、社員ID、パスワードは必須です" },
       { status: 400 }
     );
   }
 
-  const email = employeeIdToEmail(employeeId);
+  // 企業コード検証
+  const company = await getCompanyByCode(companyCode);
+  if (!company) {
+    return NextResponse.json(
+      { error: "企業コードが正しくありません" },
+      { status: 401 }
+    );
+  }
+  if (!company.is_active) {
+    return NextResponse.json(
+      { error: "この企業アカウントは無効です" },
+      { status: 403 }
+    );
+  }
+
+  const email = employeeIdToEmail(employeeId, companyCode);
 
   try {
     const res = await fetch(`${APPWRITE_ENDPOINT}/account/sessions/email`, {
