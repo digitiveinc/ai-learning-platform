@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const publicRoutes = ["/login", "/api/auth/login"];
@@ -13,9 +13,29 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  // ログイン済みでログインページへのアクセス → ダッシュボードへ
+  // ログイン済みでログインページへのアクセス → セッション検証
   if (session?.value && pathname === "/login") {
-    return NextResponse.redirect(new URL("/", request.url));
+    // セッションが有効か確認
+    try {
+      const endpoint = process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT;
+      const projectId = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID;
+      const res = await fetch(`${endpoint}/account`, {
+        headers: {
+          "x-appwrite-project": projectId!,
+          "x-appwrite-session": session.value,
+        },
+      });
+      if (res.ok) {
+        // 有効なセッション → ダッシュボードへ
+        return NextResponse.redirect(new URL("/", request.url));
+      }
+    } catch {
+      // フェッチ失敗時はフォールスルー
+    }
+    // 無効なセッション → クッキー削除してログインページ表示
+    const response = NextResponse.next();
+    response.cookies.delete("appwrite-session");
+    return response;
   }
 
   return NextResponse.next();
