@@ -48,6 +48,10 @@ export type Inquiry = {
   message: string;
   status: "open" | "in_progress" | "resolved";
   created_at: string;
+  reply_message?: string;
+  reply_phone?: string;
+  replied_at?: string;
+  replied_by?: string;
 };
 
 export const LEVEL_LABELS: Record<Video["level"], string> = {

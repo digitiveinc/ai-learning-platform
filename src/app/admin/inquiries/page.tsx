@@ -17,13 +17,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { InquiryStatusButton } from "./inquiry-status-button";
+import { InquiryReplyDialog } from "./inquiry-reply-dialog";
 
 export const dynamic = "force-dynamic";
 
 const statusLabels: Record<string, string> = {
   open: "未対応",
   in_progress: "対応中",
-  resolved: "解決済み",
+  resolved: "回答済み",
 };
 
 const statusColors: Record<string, string> = {
@@ -50,6 +51,10 @@ export default async function AdminInquiriesPage() {
     message: d.message,
     status: d.status || "open",
     created_at: d.created_at,
+    reply_message: d.reply_message || undefined,
+    reply_phone: d.reply_phone || undefined,
+    replied_at: d.replied_at || undefined,
+    replied_by: d.replied_by || undefined,
   }));
 
   return (
@@ -57,7 +62,7 @@ export default async function AdminInquiriesPage() {
       <Header email={user.email} role={role} employeeId={employeeId} />
       <main className="container mx-auto px-4 py-8">
         <Link href="/admin" className="text-sm text-blue-600 hover:underline">
-          ← 管理ダッシュボードに戻る
+          &larr; 管理ダッシュボードに戻る
         </Link>
         <h1 className="text-3xl font-bold mt-2 mb-6">問い合わせ管理</h1>
 
@@ -95,12 +100,25 @@ export default async function AdminInquiriesPage() {
                       <Badge className={statusColors[inq.status]}>
                         {statusLabels[inq.status]}
                       </Badge>
+                      {inq.replied_at && (
+                        <p className="text-xs text-gray-400 mt-1">
+                          {inq.replied_by} が回答
+                        </p>
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <InquiryStatusButton
-                        inquiryId={inq.id}
-                        currentStatus={inq.status}
-                      />
+                      <div className="flex items-center gap-2 justify-end">
+                        <InquiryReplyDialog
+                          inquiryId={inq.id}
+                          subject={inq.subject}
+                          message={inq.message}
+                          existingReply={inq.reply_message}
+                        />
+                        <InquiryStatusButton
+                          inquiryId={inq.id}
+                          currentStatus={inq.status}
+                        />
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
