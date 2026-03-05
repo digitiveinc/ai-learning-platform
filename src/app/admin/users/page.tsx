@@ -20,6 +20,7 @@ import {
 import { LEVEL_LABELS, LEVEL_COLORS } from "@/lib/types";
 import { emailToEmployeeId } from "@/lib/appwrite/employee-id";
 import { UserDeleteButton } from "./user-delete-button";
+import { UserCsvImport } from "./user-csv-import";
 
 export const dynamic = "force-dynamic";
 
@@ -80,9 +81,12 @@ export default async function AdminUsersPage() {
         </Link>
         <div className="flex items-center justify-between mt-2 mb-6">
           <h1 className="text-3xl font-bold">ユーザー管理</h1>
-          <Link href="/admin/users/create">
-            <Button>ユーザーを追加</Button>
-          </Link>
+          <div className="flex gap-2">
+            <UserCsvImport companyId={companyId} />
+            <Link href="/admin/users/create">
+              <Button>ユーザーを追加</Button>
+            </Link>
+          </div>
         </div>
 
         <div className="bg-white rounded-lg shadow-sm">

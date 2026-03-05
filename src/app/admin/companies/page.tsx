@@ -17,6 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { CompanyCsvImport } from "./company-csv-import";
 
 export const dynamic = "force-dynamic";
 
@@ -48,9 +49,12 @@ export default async function AdminCompaniesPage() {
         </Link>
         <div className="flex items-center justify-between mt-2 mb-6">
           <h1 className="text-3xl font-bold">企業管理</h1>
-          <Link href="/admin/companies/create">
-            <Button>企業を追加</Button>
-          </Link>
+          <div className="flex gap-2">
+            <CompanyCsvImport />
+            <Link href="/admin/companies/create">
+              <Button>企業を追加</Button>
+            </Link>
+          </div>
         </div>
 
         <div className="bg-white rounded-lg shadow-sm">
