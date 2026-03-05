@@ -1,8 +1,10 @@
 import Link from "next/link";
+import { Query } from "node-appwrite";
 import { requireAdmin } from "@/lib/appwrite/auth-guard";
-import { createAdminClient } from "@/lib/appwrite/server";
+import { createAdminClient, getUserLevel, getUserEmployeeId } from "@/lib/appwrite/server";
 import { Header } from "@/components/header";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -11,38 +13,70 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { RoleToggleButton } from "./role-toggle";
+import {
+  APPWRITE_DATABASE_ID,
+  APPWRITE_USER_SETTINGS_COLLECTION_ID,
+} from "@/lib/appwrite/config";
+import { LEVEL_LABELS, LEVEL_COLORS } from "@/lib/types";
+import { emailToEmployeeId } from "@/lib/appwrite/employee-id";
+import { UserDeleteButton } from "./user-delete-button";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminUsersPage() {
   const { user: currentUser, role } = await requireAdmin();
+  const currentEmployeeId = await getUserEmployeeId(currentUser.$id);
 
-  const { users } = createAdminClient();
+  const { users, databases } = createAdminClient();
   const usersRes = await users.list();
 
-  const userList = usersRes.users.map((u) => ({
-    id: u.$id,
-    email: u.email,
-    role: u.labels?.includes("admin") ? "admin" : "user",
-    createdAt: u.$createdAt,
-  }));
+  // 全user_settingsを取得
+  const settingsRes = await databases.listDocuments(
+    APPWRITE_DATABASE_ID,
+    APPWRITE_USER_SETTINGS_COLLECTION_ID,
+    [Query.limit(500)]
+  );
+  const settingsMap = new Map(
+    settingsRes.documents.map((d) => [d.user_id, d])
+  );
+
+  const userList = usersRes.users.map((u) => {
+    const settings = settingsMap.get(u.$id);
+    const level = getUserLevel(u.labels || []);
+    return {
+      id: u.$id,
+      employeeId: settings?.employee_id || emailToEmployeeId(u.email),
+      displayName: u.name || "",
+      role: u.labels?.includes("admin") ? "admin" : "user",
+      level,
+      accessMode: settings?.access_mode || "cumulative",
+      createdAt: u.$createdAt,
+    };
+  });
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header email={currentUser!.email} role={role} />
+      <Header email={currentUser!.email} role={role} employeeId={currentEmployeeId} />
       <main className="container mx-auto px-4 py-8">
         <Link href="/admin" className="text-sm text-blue-600 hover:underline">
           ← 管理ダッシュボードに戻る
         </Link>
-        <h1 className="text-3xl font-bold mt-2 mb-6">ユーザー管理</h1>
+        <div className="flex items-center justify-between mt-2 mb-6">
+          <h1 className="text-3xl font-bold">ユーザー管理</h1>
+          <Link href="/admin/users/create">
+            <Button>ユーザーを追加</Button>
+          </Link>
+        </div>
 
         <div className="bg-white rounded-lg shadow-sm">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>メールアドレス</TableHead>
+                <TableHead>社員ID</TableHead>
+                <TableHead>表示名</TableHead>
                 <TableHead>ロール</TableHead>
+                <TableHead>レベル</TableHead>
+                <TableHead>アクセス</TableHead>
                 <TableHead>登録日</TableHead>
                 <TableHead className="text-right">操作</TableHead>
               </TableRow>
@@ -50,7 +84,10 @@ export default async function AdminUsersPage() {
             <TableBody>
               {userList.map((u) => (
                 <TableRow key={u.id}>
-                  <TableCell>{u.email}</TableCell>
+                  <TableCell className="font-mono font-medium">
+                    {u.employeeId}
+                  </TableCell>
+                  <TableCell>{u.displayName || "-"}</TableCell>
                   <TableCell>
                     <Badge
                       variant={u.role === "admin" ? "default" : "secondary"}
@@ -59,12 +96,33 @@ export default async function AdminUsersPage() {
                     </Badge>
                   </TableCell>
                   <TableCell>
+                    {u.level ? (
+                      <Badge className={LEVEL_COLORS[u.level]}>
+                        {LEVEL_LABELS[u.level]}
+                      </Badge>
+                    ) : (
+                      <span className="text-gray-400">未設定</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-sm text-gray-600">
+                      {u.accessMode === "cumulative" ? "累積" : "限定"}
+                    </span>
+                  </TableCell>
+                  <TableCell>
                     {new Date(u.createdAt).toLocaleDateString("ja-JP")}
                   </TableCell>
                   <TableCell className="text-right">
-                    {u.id !== currentUser!.$id && (
-                      <RoleToggleButton userId={u.id} currentRole={u.role} />
-                    )}
+                    <div className="flex gap-2 justify-end">
+                      <Link href={`/admin/users/${u.id}/edit`}>
+                        <Button variant="outline" size="sm">
+                          編集
+                        </Button>
+                      </Link>
+                      {u.id !== currentUser!.$id && (
+                        <UserDeleteButton userId={u.id} employeeId={u.employeeId} />
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

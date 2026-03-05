@@ -1,19 +1,29 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Query } from "node-appwrite";
-import { requireAuth } from "@/lib/appwrite/auth-guard";
-import { createAdminClient } from "@/lib/appwrite/server";
-import { APPWRITE_DATABASE_ID, APPWRITE_VIDEOS_COLLECTION_ID } from "@/lib/appwrite/config";
+import { requireLevelAccess } from "@/lib/appwrite/auth-guard";
+import { createAdminClient, getUserEmployeeId } from "@/lib/appwrite/server";
+import {
+  APPWRITE_DATABASE_ID,
+  APPWRITE_VIDEOS_COLLECTION_ID,
+  APPWRITE_WATCH_PROGRESS_COLLECTION_ID,
+} from "@/lib/appwrite/config";
 import { Header } from "@/components/header";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { VideoCard } from "@/components/video-card";
+import { ProgressBar } from "@/components/progress-bar";
 import { LEVEL_LABELS, LEVEL_COLORS } from "@/lib/types";
-import { extractYouTubeId } from "@/lib/youtube";
 import type { Video } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
 const validLevels = ["beginner", "intermediate", "advanced"];
+
+const progressColors: Record<string, string> = {
+  beginner: "bg-emerald-500",
+  intermediate: "bg-blue-500",
+  advanced: "bg-violet-500",
+};
 
 export default async function VideoListPage({
   params,
@@ -27,7 +37,8 @@ export default async function VideoListPage({
   }
 
   const typedLevel = level as Video["level"];
-  const { user, role } = await requireAuth();
+  const { user, role } = await requireLevelAccess(typedLevel);
+  const employeeId = await getUserEmployeeId(user.$id);
 
   const { databases } = createAdminClient();
   const response = await databases.listDocuments(
@@ -40,53 +51,59 @@ export default async function VideoListPage({
     ]
   );
 
+  // 視聴進捗取得
+  const progressRes = await databases.listDocuments(
+    APPWRITE_DATABASE_ID,
+    APPWRITE_WATCH_PROGRESS_COLLECTION_ID,
+    [
+      Query.equal("user_id", user.$id),
+      Query.equal("watched", true),
+      Query.limit(500),
+    ]
+  );
+  const watchedVideoIds = new Set(progressRes.documents.map((d) => d.video_id));
+
   const videoList = response.documents;
+  const watchedCount = videoList.filter((v) => watchedVideoIds.has(v.$id)).length;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header email={user!.email} role={role} />
+    <div className="min-h-screen bg-slate-50">
+      <Header email={user!.email} role={role} employeeId={employeeId} />
       <main className="container mx-auto px-4 py-8">
         <div className="mb-6">
           <Link href="/" className="text-sm text-blue-600 hover:underline">
-            ← ダッシュボードに戻る
+            &larr; ダッシュボードに戻る
           </Link>
         </div>
 
-        <div className="flex items-center gap-3 mb-6">
+        <div className="flex items-center gap-3 mb-2">
           <h1 className="text-3xl font-bold">{LEVEL_LABELS[typedLevel]}</h1>
           <Badge className={LEVEL_COLORS[typedLevel]}>
             {videoList.length} 本
           </Badge>
         </div>
 
+        <div className="max-w-sm mb-6">
+          <ProgressBar
+            watched={watchedCount}
+            total={videoList.length}
+            color={progressColors[level]}
+          />
+        </div>
+
         {videoList.length > 0 ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {videoList.map((video) => {
-              const videoId = extractYouTubeId(video.youtube_url);
-              return (
-                <Link key={video.$id} href={`/videos/${level}/${video.$id}`}>
-                  <Card className="transition-colors hover:border-gray-400 cursor-pointer h-full">
-                    {videoId && (
-                      <div className="aspect-video w-full overflow-hidden rounded-t-lg">
-                        <img
-                          src={`https://img.youtube.com/vi/${videoId}/mqdefault.jpg`}
-                          alt={video.title}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    )}
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-lg">{video.title}</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-sm text-gray-600 line-clamp-2">
-                        {video.description}
-                      </p>
-                    </CardContent>
-                  </Card>
-                </Link>
-              );
-            })}
+          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+            {videoList.map((video) => (
+              <VideoCard
+                key={video.$id}
+                id={video.$id}
+                title={video.title}
+                description={video.description}
+                youtubeUrl={video.youtube_url}
+                level={level}
+                watched={watchedVideoIds.has(video.$id)}
+              />
+            ))}
           </div>
         ) : (
           <p className="text-gray-500">このレベルの動画はまだ登録されていません。</p>

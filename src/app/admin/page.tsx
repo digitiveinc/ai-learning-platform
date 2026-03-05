@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/appwrite/auth-guard";
-import { createAdminClient } from "@/lib/appwrite/server";
+import { createAdminClient, getUserEmployeeId } from "@/lib/appwrite/server";
 import { APPWRITE_DATABASE_ID, APPWRITE_VIDEOS_COLLECTION_ID } from "@/lib/appwrite/config";
 import { Header } from "@/components/header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
   const { user, role } = await requireAdmin();
+  const employeeId = await getUserEmployeeId(user.$id);
 
   const { databases, users } = createAdminClient();
 
@@ -21,7 +22,7 @@ export default async function AdminDashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header email={user!.email} role={role} />
+      <Header email={user!.email} role={role} employeeId={employeeId} />
       <main className="container mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold mb-8">管理ダッシュボード</h1>
 
@@ -43,7 +44,7 @@ export default async function AdminDashboardPage() {
             <Card className="transition-colors hover:border-gray-400 cursor-pointer">
               <CardHeader>
                 <CardTitle>ユーザー管理</CardTitle>
-                <CardDescription>ユーザー一覧とロール管理</CardDescription>
+                <CardDescription>ユーザーの追加・編集・レベル管理</CardDescription>
               </CardHeader>
               <CardContent>
                 <p className="text-3xl font-bold">{usersRes.total}</p>

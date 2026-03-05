@@ -2,14 +2,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("");
+  const [employeeId, setEmployeeId] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -23,7 +22,7 @@ export default function LoginPage() {
     const res = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ employeeId, password }),
     });
 
     if (!res.ok) {
@@ -77,18 +76,18 @@ export default function LoginPage() {
           <Card className="shadow-lg border-0">
             <CardHeader className="pb-4">
               <h2 className="text-2xl font-semibold text-center">ログイン</h2>
-              <p className="text-sm text-gray-500 text-center">アカウント情報を入力してください</p>
+              <p className="text-sm text-gray-500 text-center">社員IDとパスワードを入力してください</p>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleLogin} className="space-y-5">
                 <div className="space-y-2">
-                  <Label htmlFor="email">メールアドレス</Label>
+                  <Label htmlFor="employeeId">社員ID</Label>
                   <Input
-                    id="email"
-                    type="email"
-                    placeholder="name@company.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    id="employeeId"
+                    type="text"
+                    placeholder="例: EMP001"
+                    value={employeeId}
+                    onChange={(e) => setEmployeeId(e.target.value)}
                     className="h-11"
                     required
                   />
@@ -98,7 +97,7 @@ export default function LoginPage() {
                   <Input
                     id="password"
                     type="password"
-                    placeholder="8文字以上"
+                    placeholder="パスワードを入力"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="h-11"
@@ -118,11 +117,8 @@ export default function LoginPage() {
                   {loading ? "ログイン中..." : "ログイン"}
                 </Button>
               </form>
-              <div className="mt-6 text-center text-sm text-gray-500">
-                アカウントをお持ちでない方は{" "}
-                <Link href="/register" className="text-slate-900 font-medium hover:underline">
-                  新規登録
-                </Link>
+              <div className="mt-6 text-center text-sm text-gray-400">
+                管理者から発行された社員IDでログインしてください
               </div>
             </CardContent>
           </Card>

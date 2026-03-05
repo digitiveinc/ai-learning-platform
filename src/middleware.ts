@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  const publicRoutes = ["/login", "/register", "/api/auth/login", "/api/auth/register"];
+  const publicRoutes = ["/login", "/api/auth/login"];
   const isPublicRoute = publicRoutes.some((route) => pathname.startsWith(route));
 
   const session = request.cookies.get("appwrite-session");
@@ -13,8 +13,8 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  // ログイン済みでログイン/登録ページへのアクセス → ダッシュボードへ
-  if (session?.value && (pathname === "/login" || pathname === "/register")) {
+  // ログイン済みでログインページへのアクセス → ダッシュボードへ
+  if (session?.value && pathname === "/login") {
     return NextResponse.redirect(new URL("/", request.url));
   }
 

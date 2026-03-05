@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/appwrite/auth-guard";
-import { createAdminClient } from "@/lib/appwrite/server";
+import { createAdminClient, getUserEmployeeId } from "@/lib/appwrite/server";
 import { APPWRITE_DATABASE_ID, APPWRITE_VIDEOS_COLLECTION_ID } from "@/lib/appwrite/config";
 import { Header } from "@/components/header";
 import { VideoForm } from "@/components/video-form";
@@ -15,6 +15,7 @@ export default async function EditVideoPage({
 }) {
   const { id } = await params;
   const { user, role } = await requireAdmin();
+  const employeeId = await getUserEmployeeId(user.$id);
 
   const { databases } = createAdminClient();
 
@@ -31,7 +32,7 @@ export default async function EditVideoPage({
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header email={user!.email} role={role} />
+      <Header email={user!.email} role={role} employeeId={employeeId} />
       <main className="container mx-auto px-4 py-8">
         <Link href="/admin/videos" className="text-sm text-blue-600 hover:underline">
           ← 動画管理に戻る

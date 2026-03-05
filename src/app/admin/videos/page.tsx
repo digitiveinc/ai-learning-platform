@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Query } from "node-appwrite";
 import { requireAdmin } from "@/lib/appwrite/auth-guard";
-import { createAdminClient } from "@/lib/appwrite/server";
+import { createAdminClient, getUserEmployeeId } from "@/lib/appwrite/server";
 import { APPWRITE_DATABASE_ID, APPWRITE_VIDEOS_COLLECTION_ID } from "@/lib/appwrite/config";
 import { Header } from "@/components/header";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminVideosPage() {
   const { user, role } = await requireAdmin();
+  const employeeId = await getUserEmployeeId(user.$id);
 
   const { databases } = createAdminClient();
   const response = await databases.listDocuments(
@@ -34,7 +35,7 @@ export default async function AdminVideosPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header email={user!.email} role={role} />
+      <Header email={user!.email} role={role} employeeId={employeeId} />
       <main className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-6">
           <div>
