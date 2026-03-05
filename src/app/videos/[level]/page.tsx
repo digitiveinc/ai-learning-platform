@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Query } from "node-appwrite";
 import { requireLevelAccess } from "@/lib/appwrite/auth-guard";
-import { createAdminClient, getUserEmployeeId } from "@/lib/appwrite/server";
+import { createAdminClient, getUserEmployeeId, getUserSettings } from "@/lib/appwrite/server";
 import {
   APPWRITE_DATABASE_ID,
   APPWRITE_VIDEOS_COLLECTION_ID,
@@ -39,6 +39,8 @@ export default async function VideoListPage({
   const typedLevel = level as Video["level"];
   const { user, role } = await requireLevelAccess(typedLevel);
   const employeeId = await getUserEmployeeId(user.$id);
+  const settings = await getUserSettings(user.$id);
+  const displayName = settings?.display_name || employeeId;
 
   const { databases } = createAdminClient();
   const response = await databases.listDocuments(
@@ -69,7 +71,7 @@ export default async function VideoListPage({
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <Header email={user!.email} role={role} employeeId={employeeId} />
+      <Header email={user!.email} role={role} employeeId={employeeId} displayName={displayName} />
       <main className="container mx-auto px-4 py-8">
         <div className="mb-6">
           <Link href="/" className="text-sm text-blue-600 hover:underline">

@@ -16,7 +16,7 @@ export default async function InquiryPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <Header email={user.email} role={role} employeeId={employeeId} />
+      <Header email={user.email} role={role} employeeId={employeeId} displayName={displayName} />
       <main className="container mx-auto px-4 py-8 max-w-3xl">
         <div className="mb-6">
           <Link href="/" className="text-sm text-blue-600 hover:underline">
