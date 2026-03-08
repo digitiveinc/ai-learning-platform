@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Models, Query } from "node-appwrite";
+import { Query } from "node-appwrite";
 import { requireAuth } from "@/lib/appwrite/auth-guard";
 import { createAdminClient, getUserAccessibleLevels, getUserEmployeeId, getUserSettings } from "@/lib/appwrite/server";
 import {
@@ -85,6 +85,14 @@ function LevelIcon({ type, className }: { type: string; className?: string }) {
 }
 
 export default async function DashboardPage() {
+  type ArchiveDoc = {
+    $id: string;
+    title: string;
+    description?: string;
+    youtube_url: string;
+    created_at: string;
+  };
+
   const { user, role, companyId } = await requireAuth();
 
   const accessibleLevels = await getUserAccessibleLevels(user.$id);
@@ -121,11 +129,11 @@ export default async function DashboardPage() {
   const totalPercent = totalVideos === 0 ? 0 : Math.round((totalWatched / totalVideos) * 100);
 
   const archiveQueries = [Query.orderDesc("created_at"), Query.limit(500)];
-  let archives: Models.Document[] = [];
+  let archives: ArchiveDoc[] = [];
 
   // コレクション未設定の環境ではアーカイブ表示を無効化
   if (APPWRITE_ARCHIVES_COLLECTION_ID) {
-    const archiveResults: Models.Document[] = [];
+    const archiveResults: ArchiveDoc[] = [];
 
     if (companyId) {
       const companyArchives = await databases.listDocuments(
@@ -133,7 +141,7 @@ export default async function DashboardPage() {
         APPWRITE_ARCHIVES_COLLECTION_ID,
         [...archiveQueries, Query.equal("target_type", "company"), Query.equal("target_id", companyId)]
       );
-      archiveResults.push(...companyArchives.documents);
+      archiveResults.push(...(companyArchives.documents as unknown as ArchiveDoc[]));
     }
 
     const userArchives = await databases.listDocuments(
@@ -141,7 +149,7 @@ export default async function DashboardPage() {
       APPWRITE_ARCHIVES_COLLECTION_ID,
       [...archiveQueries, Query.equal("target_type", "user"), Query.equal("target_id", user.$id)]
     );
-    archiveResults.push(...userArchives.documents);
+    archiveResults.push(...(userArchives.documents as unknown as ArchiveDoc[]));
 
     // 重複排除＆日付順ソート
     const archiveMap = new Map(archiveResults.map((d) => [d.$id, d]));
