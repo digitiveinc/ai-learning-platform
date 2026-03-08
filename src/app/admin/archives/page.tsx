@@ -31,52 +31,55 @@ export default async function AdminArchivesPage() {
 
   const { databases } = createAdminClient();
 
-  const queries = [Query.orderDesc("created_at"), Query.limit(500)];
-  if (role !== "superadmin" && companyId) {
-    queries.push(Query.equal("target_type", "company"));
-    queries.push(Query.equal("target_id", companyId));
+  let archives: (Archive & { targetName: string })[] = [];
+  if (APPWRITE_ARCHIVES_COLLECTION_ID) {
+    const queries = [Query.orderDesc("created_at"), Query.limit(500)];
+    if (role !== "superadmin" && companyId) {
+      queries.push(Query.equal("target_type", "company"));
+      queries.push(Query.equal("target_id", companyId));
+    }
+
+    const archivesRes = await databases.listDocuments(
+      APPWRITE_DATABASE_ID,
+      APPWRITE_ARCHIVES_COLLECTION_ID,
+      queries
+    );
+
+    // 企業名を解決
+    const companiesRes = await databases.listDocuments(
+      APPWRITE_DATABASE_ID,
+      APPWRITE_COMPANIES_COLLECTION_ID,
+      [Query.limit(500)]
+    );
+    const companyMap = new Map(
+      companiesRes.documents.map((d) => [d.$id, d.company_name])
+    );
+
+    // ユーザー名を解決
+    const settingsRes = await databases.listDocuments(
+      APPWRITE_DATABASE_ID,
+      APPWRITE_USER_SETTINGS_COLLECTION_ID,
+      [Query.limit(500)]
+    );
+    const userNameMap = new Map(
+      settingsRes.documents.map((d) => [d.user_id, d.display_name || d.employee_id])
+    );
+
+    archives = archivesRes.documents.map((d) => ({
+      id: d.$id,
+      title: d.title,
+      description: d.description || "",
+      youtube_url: d.youtube_url,
+      target_type: d.target_type,
+      target_id: d.target_id,
+      created_by: d.created_by,
+      created_at: d.created_at,
+      targetName:
+        d.target_type === "company"
+          ? companyMap.get(d.target_id) || d.target_id
+          : userNameMap.get(d.target_id) || d.target_id,
+    }));
   }
-
-  const archivesRes = await databases.listDocuments(
-    APPWRITE_DATABASE_ID,
-    APPWRITE_ARCHIVES_COLLECTION_ID,
-    queries
-  );
-
-  // 企業名を解決
-  const companiesRes = await databases.listDocuments(
-    APPWRITE_DATABASE_ID,
-    APPWRITE_COMPANIES_COLLECTION_ID,
-    [Query.limit(500)]
-  );
-  const companyMap = new Map(
-    companiesRes.documents.map((d) => [d.$id, d.company_name])
-  );
-
-  // ユーザー名を解決
-  const settingsRes = await databases.listDocuments(
-    APPWRITE_DATABASE_ID,
-    APPWRITE_USER_SETTINGS_COLLECTION_ID,
-    [Query.limit(500)]
-  );
-  const userNameMap = new Map(
-    settingsRes.documents.map((d) => [d.user_id, d.display_name || d.employee_id])
-  );
-
-  const archives: (Archive & { targetName: string })[] = archivesRes.documents.map((d) => ({
-    id: d.$id,
-    title: d.title,
-    description: d.description || "",
-    youtube_url: d.youtube_url,
-    target_type: d.target_type,
-    target_id: d.target_id,
-    created_by: d.created_by,
-    created_at: d.created_at,
-    targetName:
-      d.target_type === "company"
-        ? companyMap.get(d.target_id) || d.target_id
-        : userNameMap.get(d.target_id) || d.target_id,
-  }));
 
   return (
     <div className="min-h-screen bg-gray-50">

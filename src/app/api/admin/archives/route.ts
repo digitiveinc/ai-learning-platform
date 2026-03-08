@@ -22,6 +22,9 @@ async function requireAdminApi() {
 export async function GET() {
   const auth = await requireAdminApi();
   if ("error" in auth && auth.error) return auth.error;
+  if (!APPWRITE_ARCHIVES_COLLECTION_ID) {
+    return NextResponse.json({ error: "アーカイブ機能は現在無効です" }, { status: 503 });
+  }
 
   try {
     const { databases } = createAdminClient();
@@ -62,6 +65,9 @@ export async function GET() {
 export async function POST(request: Request) {
   const auth = await requireAdminApi();
   if ("error" in auth && auth.error) return auth.error;
+  if (!APPWRITE_ARCHIVES_COLLECTION_ID) {
+    return NextResponse.json({ error: "アーカイブ機能は現在無効です" }, { status: 503 });
+  }
 
   const { title, description, youtube_url, target_type, target_id } = await request.json();
 

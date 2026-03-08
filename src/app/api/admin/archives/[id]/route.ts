@@ -34,6 +34,9 @@ export async function PUT(
 ) {
   const auth = await requireAdminApi();
   if ("error" in auth && auth.error) return auth.error;
+  if (!APPWRITE_ARCHIVES_COLLECTION_ID) {
+    return NextResponse.json({ error: "アーカイブ機能は現在無効です" }, { status: 503 });
+  }
 
   const { id } = await params;
 
@@ -89,6 +92,9 @@ export async function DELETE(
 ) {
   const auth = await requireAdminApi();
   if ("error" in auth && auth.error) return auth.error;
+  if (!APPWRITE_ARCHIVES_COLLECTION_ID) {
+    return NextResponse.json({ error: "アーカイブ機能は現在無効です" }, { status: 503 });
+  }
 
   const { id } = await params;
 

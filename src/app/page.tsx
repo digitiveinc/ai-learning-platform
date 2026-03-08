@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Query } from "node-appwrite";
+import { Models, Query } from "node-appwrite";
 import { requireAuth } from "@/lib/appwrite/auth-guard";
 import { createAdminClient, getUserAccessibleLevels, getUserEmployeeId, getUserSettings } from "@/lib/appwrite/server";
 import {
@@ -120,31 +120,35 @@ export default async function DashboardPage() {
   const totalWatched = accessibleLevels.reduce((sum, l) => sum + (watchedCounts[l] || 0), 0);
   const totalPercent = totalVideos === 0 ? 0 : Math.round((totalWatched / totalVideos) * 100);
 
-  // アーカイブ取得（企業向け＋個人向け）
   const archiveQueries = [Query.orderDesc("created_at"), Query.limit(500)];
-  const archiveResults = [];
+  let archives: Models.Document[] = [];
 
-  if (companyId) {
-    const companyArchives = await databases.listDocuments(
+  // コレクション未設定の環境ではアーカイブ表示を無効化
+  if (APPWRITE_ARCHIVES_COLLECTION_ID) {
+    const archiveResults: Models.Document[] = [];
+
+    if (companyId) {
+      const companyArchives = await databases.listDocuments(
+        APPWRITE_DATABASE_ID,
+        APPWRITE_ARCHIVES_COLLECTION_ID,
+        [...archiveQueries, Query.equal("target_type", "company"), Query.equal("target_id", companyId)]
+      );
+      archiveResults.push(...companyArchives.documents);
+    }
+
+    const userArchives = await databases.listDocuments(
       APPWRITE_DATABASE_ID,
       APPWRITE_ARCHIVES_COLLECTION_ID,
-      [...archiveQueries, Query.equal("target_type", "company"), Query.equal("target_id", companyId)]
+      [...archiveQueries, Query.equal("target_type", "user"), Query.equal("target_id", user.$id)]
     );
-    archiveResults.push(...companyArchives.documents);
+    archiveResults.push(...userArchives.documents);
+
+    // 重複排除＆日付順ソート
+    const archiveMap = new Map(archiveResults.map((d) => [d.$id, d]));
+    archives = Array.from(archiveMap.values()).sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
   }
-
-  const userArchives = await databases.listDocuments(
-    APPWRITE_DATABASE_ID,
-    APPWRITE_ARCHIVES_COLLECTION_ID,
-    [...archiveQueries, Query.equal("target_type", "user"), Query.equal("target_id", user.$id)]
-  );
-  archiveResults.push(...userArchives.documents);
-
-  // 重複排除＆日付順ソート
-  const archiveMap = new Map(archiveResults.map((d) => [d.$id, d]));
-  const archives = Array.from(archiveMap.values()).sort(
-    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-  );
 
   return (
     <div className="min-h-screen bg-slate-50">

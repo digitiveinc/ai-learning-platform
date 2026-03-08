@@ -33,11 +33,13 @@ export default async function AdminDashboardPage() {
     [Query.equal("status", "open"), Query.limit(500)]
   );
 
-  const archivesRes = await databases.listDocuments(
-    APPWRITE_DATABASE_ID,
-    APPWRITE_ARCHIVES_COLLECTION_ID,
-    [Query.limit(1)]
-  );
+  const archivesCount = APPWRITE_ARCHIVES_COLLECTION_ID
+    ? (await databases.listDocuments(
+      APPWRITE_DATABASE_ID,
+      APPWRITE_ARCHIVES_COLLECTION_ID,
+      [Query.limit(1)]
+    )).total
+    : 0;
 
   const adminCards = [
     {
@@ -89,7 +91,7 @@ export default async function AdminDashboardPage() {
       href: "/admin/archives",
       title: "アーカイブ管理",
       description: "授業・研修録画の配信管理",
-      count: archivesRes.total,
+      count: archivesCount,
       countLabel: "登録済みアーカイブ",
       gradient: "from-amber-400 to-amber-600",
       iconBg: "bg-amber-50",

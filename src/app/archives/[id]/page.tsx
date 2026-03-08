@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Query } from "node-appwrite";
 import { requireAuth } from "@/lib/appwrite/auth-guard";
 import { createAdminClient, getUserEmployeeId, getUserSettings } from "@/lib/appwrite/server";
 import {
@@ -24,6 +23,9 @@ export default async function ArchiveViewPage({
   const displayName = settings?.display_name || employeeId;
 
   const { databases } = createAdminClient();
+  if (!APPWRITE_ARCHIVES_COLLECTION_ID) {
+    notFound();
+  }
 
   let archive;
   try {
