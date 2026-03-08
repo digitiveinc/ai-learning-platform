@@ -6,9 +6,11 @@ import {
   APPWRITE_DATABASE_ID,
   APPWRITE_VIDEOS_COLLECTION_ID,
   APPWRITE_WATCH_PROGRESS_COLLECTION_ID,
+  APPWRITE_ARCHIVES_COLLECTION_ID,
 } from "@/lib/appwrite/config";
 import { Header } from "@/components/header";
 import { ProgressBar } from "@/components/progress-bar";
+import { ArchiveCard } from "@/components/archive-card";
 import type { Video } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -83,7 +85,7 @@ function LevelIcon({ type, className }: { type: string; className?: string }) {
 }
 
 export default async function DashboardPage() {
-  const { user, role } = await requireAuth();
+  const { user, role, companyId } = await requireAuth();
 
   const accessibleLevels = await getUserAccessibleLevels(user.$id);
   const employeeId = await getUserEmployeeId(user.$id);
@@ -117,6 +119,32 @@ export default async function DashboardPage() {
   const totalVideos = accessibleLevels.reduce((sum, l) => sum + (videoCounts[l] || 0), 0);
   const totalWatched = accessibleLevels.reduce((sum, l) => sum + (watchedCounts[l] || 0), 0);
   const totalPercent = totalVideos === 0 ? 0 : Math.round((totalWatched / totalVideos) * 100);
+
+  // アーカイブ取得（企業向け＋個人向け）
+  const archiveQueries = [Query.orderDesc("created_at"), Query.limit(500)];
+  const archiveResults = [];
+
+  if (companyId) {
+    const companyArchives = await databases.listDocuments(
+      APPWRITE_DATABASE_ID,
+      APPWRITE_ARCHIVES_COLLECTION_ID,
+      [...archiveQueries, Query.equal("target_type", "company"), Query.equal("target_id", companyId)]
+    );
+    archiveResults.push(...companyArchives.documents);
+  }
+
+  const userArchives = await databases.listDocuments(
+    APPWRITE_DATABASE_ID,
+    APPWRITE_ARCHIVES_COLLECTION_ID,
+    [...archiveQueries, Query.equal("target_type", "user"), Query.equal("target_id", user.$id)]
+  );
+  archiveResults.push(...userArchives.documents);
+
+  // 重複排除＆日付順ソート
+  const archiveMap = new Map(archiveResults.map((d) => [d.$id, d]));
+  const archives = Array.from(archiveMap.values()).sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -209,6 +237,33 @@ export default async function DashboardPage() {
             );
           })}
         </div>
+
+        {archives.length > 0 && (
+          <div className="mt-10">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
+                <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-slate-800">アーカイブ</h2>
+                <p className="text-sm text-slate-500">過去の授業・研修の録画</p>
+              </div>
+            </div>
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {archives.map((a) => (
+                <ArchiveCard
+                  key={a.$id}
+                  id={a.$id}
+                  title={a.title}
+                  description={a.description || ""}
+                  youtubeUrl={a.youtube_url}
+                />
+              ))}
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

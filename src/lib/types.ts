@@ -54,6 +54,22 @@ export type Inquiry = {
   replied_by?: string;
 };
 
+export type Archive = {
+  id: string;
+  title: string;
+  description: string;
+  youtube_url: string;
+  target_type: "company" | "user";
+  target_id: string;
+  created_by: string;
+  created_at: string;
+};
+
+export const TARGET_TYPE_LABELS: Record<Archive["target_type"], string> = {
+  company: "企業",
+  user: "ユーザー",
+};
+
 export const LEVEL_LABELS: Record<Video["level"], string> = {
   beginner: "初級",
   intermediate: "中級",

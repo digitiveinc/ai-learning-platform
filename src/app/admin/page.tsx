@@ -6,6 +6,7 @@ import {
   APPWRITE_DATABASE_ID,
   APPWRITE_VIDEOS_COLLECTION_ID,
   APPWRITE_INQUIRIES_COLLECTION_ID,
+  APPWRITE_ARCHIVES_COLLECTION_ID,
 } from "@/lib/appwrite/config";
 import { Header } from "@/components/header";
 
@@ -30,6 +31,12 @@ export default async function AdminDashboardPage() {
     APPWRITE_DATABASE_ID,
     APPWRITE_INQUIRIES_COLLECTION_ID,
     [Query.equal("status", "open"), Query.limit(500)]
+  );
+
+  const archivesRes = await databases.listDocuments(
+    APPWRITE_DATABASE_ID,
+    APPWRITE_ARCHIVES_COLLECTION_ID,
+    [Query.limit(1)]
   );
 
   const adminCards = [
@@ -78,6 +85,21 @@ export default async function AdminDashboardPage() {
         </svg>
       ),
     },
+    {
+      href: "/admin/archives",
+      title: "アーカイブ管理",
+      description: "授業・研修録画の配信管理",
+      count: archivesRes.total,
+      countLabel: "登録済みアーカイブ",
+      gradient: "from-amber-400 to-amber-600",
+      iconBg: "bg-amber-50",
+      iconColor: "text-amber-600",
+      icon: (
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+        </svg>
+      ),
+    },
   ];
 
   return (
@@ -89,7 +111,7 @@ export default async function AdminDashboardPage() {
           <p className="text-slate-500 mt-1">研修プラットフォームの管理を行います</p>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-3">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           {adminCards.map((card) => (
             <Link key={card.href} href={card.href}>
               <div className="group relative rounded-xl border border-slate-200 bg-white overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-slate-200/50 hover:-translate-y-1 h-full">
