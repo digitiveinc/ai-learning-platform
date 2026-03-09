@@ -105,6 +105,7 @@ export default async function VideoListPage({
                   title={video.title}
                   description={video.description}
                   youtubeUrl={video.youtube_url}
+                  thumbnailUrl={video.thumbnail_url || undefined}
                   level={level}
                   watched={p?.watched || false}
                   progress={p?.progress || 0}

@@ -90,6 +90,7 @@ export default async function DashboardPage() {
     title: string;
     description?: string;
     youtube_url: string;
+    thumbnail_url?: string;
     created_at: string;
   };
 
@@ -271,6 +272,7 @@ export default async function DashboardPage() {
                   title={a.title}
                   description={a.description || ""}
                   youtubeUrl={a.youtube_url}
+                  thumbnailUrl={a.thumbnail_url || undefined}
                 />
               ))}
             </div>

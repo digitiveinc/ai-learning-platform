@@ -14,11 +14,25 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+const THUMBNAIL_OPTIONS = [
+  { label: "AI基礎研修", value: "/thumbnails/ai-basics.svg" },
+  { label: "プロンプトエンジニアリング", value: "/thumbnails/prompt-engineering.svg" },
+  { label: "ChatGPT活用法", value: "/thumbnails/chatgpt-usage.svg" },
+  { label: "AIビジネス活用", value: "/thumbnails/ai-business.svg" },
+  { label: "機械学習入門", value: "/thumbnails/machine-learning.svg" },
+  { label: "AI倫理・リスク管理", value: "/thumbnails/ai-ethics.svg" },
+  { label: "生成AI概論", value: "/thumbnails/generative-ai.svg" },
+  { label: "AIツール実践", value: "/thumbnails/ai-tools.svg" },
+  { label: "AI×DX推進", value: "/thumbnails/ai-dx.svg" },
+  { label: "AIデータ分析", value: "/thumbnails/data-analysis.svg" },
+];
+
 type VideoFormProps = {
   video?: {
     id: string;
     title: string;
     youtubeUrl: string;
+    thumbnailUrl?: string;
     level: string;
     description: string | null;
     sortOrder: number;
@@ -28,6 +42,7 @@ type VideoFormProps = {
 export function VideoForm({ video }: VideoFormProps) {
   const [title, setTitle] = useState(video?.title || "");
   const [youtubeUrl, setYoutubeUrl] = useState(video?.youtubeUrl || "");
+  const [thumbnailUrl, setThumbnailUrl] = useState(video?.thumbnailUrl || "");
   const [level, setLevel] = useState<string>(video?.level || "beginner");
   const [description, setDescription] = useState(video?.description || "");
   const [sortOrder, setSortOrder] = useState(video?.sortOrder?.toString() || "0");
@@ -43,6 +58,7 @@ export function VideoForm({ video }: VideoFormProps) {
     const data = {
       title,
       youtube_url: youtubeUrl,
+      thumbnail_url: (thumbnailUrl && thumbnailUrl !== "none") ? thumbnailUrl : "",
       level,
       description,
       sort_order: parseInt(sortOrder) || 0,
@@ -89,6 +105,39 @@ export function VideoForm({ video }: VideoFormProps) {
           placeholder="https://www.youtube.com/watch?v=..."
           required
         />
+      </div>
+
+      <div className="space-y-3">
+        <Label>サムネイル画像</Label>
+        <div className="space-y-2">
+          <Select value={thumbnailUrl} onValueChange={setThumbnailUrl}>
+            <SelectTrigger>
+              <SelectValue placeholder="プリセットから選択（任意）" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">YouTube既定サムネイル</SelectItem>
+              {THUMBNAIL_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Input
+            value={thumbnailUrl}
+            onChange={(e) => setThumbnailUrl(e.target.value)}
+            placeholder="または画像URLを直接入力（/thumbnails/xxx.svg など）"
+          />
+        </div>
+        {thumbnailUrl && thumbnailUrl !== "none" && (
+          <div className="border rounded-lg overflow-hidden w-64">
+            <img
+              src={thumbnailUrl}
+              alt="サムネイルプレビュー"
+              className="w-full aspect-video object-cover"
+            />
+          </div>
+        )}
       </div>
 
       <div className="space-y-2">

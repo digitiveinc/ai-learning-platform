@@ -48,6 +48,7 @@ export async function GET() {
       title: d.title,
       description: d.description || "",
       youtube_url: d.youtube_url,
+      thumbnail_url: d.thumbnail_url || "",
       target_type: d.target_type,
       target_id: d.target_id,
       created_by: d.created_by,
@@ -69,7 +70,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "アーカイブ機能は現在無効です" }, { status: 503 });
   }
 
-  const { title, description, youtube_url, target_type, target_id } = await request.json();
+  const { title, description, youtube_url, thumbnail_url, target_type, target_id } = await request.json();
 
   if (!title || !youtube_url || !target_type || !target_id) {
     return NextResponse.json({ error: "必須項目を入力してください" }, { status: 400 });
@@ -103,6 +104,7 @@ export async function POST(request: Request) {
         title,
         description: description || "",
         youtube_url,
+        thumbnail_url: thumbnail_url || "",
         target_type,
         target_id,
         created_by: auth.currentUser!.$id,

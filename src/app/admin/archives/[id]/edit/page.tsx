@@ -92,6 +92,7 @@ export default async function EditArchivePage({
             title: archive.title,
             description: archive.description || "",
             youtube_url: archive.youtube_url,
+            thumbnail_url: archive.thumbnail_url || "",
             target_type: archive.target_type,
             target_id: archive.target_id,
           }}

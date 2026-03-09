@@ -15,6 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { LEVEL_LABELS, LEVEL_COLORS } from "@/lib/types";
+import { extractYouTubeId } from "@/lib/youtube";
 import { DeleteVideoButton } from "./delete-button";
 import type { Video } from "@/lib/types";
 
@@ -53,6 +54,7 @@ export default async function AdminVideosPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-20">サムネ</TableHead>
                 <TableHead>タイトル</TableHead>
                 <TableHead>レベル</TableHead>
                 <TableHead>表示順</TableHead>
@@ -66,6 +68,16 @@ export default async function AdminVideosPage() {
                   const level = video.level as Video["level"];
                   return (
                     <TableRow key={video.$id}>
+                      <TableCell>
+                        {(() => {
+                          const thumb = video.thumbnail_url || (extractYouTubeId(video.youtube_url) ? `https://img.youtube.com/vi/${extractYouTubeId(video.youtube_url)}/mqdefault.jpg` : null);
+                          return thumb ? (
+                            <img src={thumb} alt="" className="w-16 h-10 object-cover rounded" />
+                          ) : (
+                            <div className="w-16 h-10 bg-slate-200 rounded flex items-center justify-center text-xs text-slate-400">-</div>
+                          );
+                        })()}
+                      </TableCell>
                       <TableCell className="font-medium">{video.title}</TableCell>
                       <TableCell>
                         <Badge className={LEVEL_COLORS[level]}>
@@ -91,7 +103,7 @@ export default async function AdminVideosPage() {
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-gray-500 py-8">
+                  <TableCell colSpan={6} className="text-center text-gray-500 py-8">
                     動画がまだ登録されていません
                   </TableCell>
                 </TableRow>

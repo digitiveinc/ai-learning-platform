@@ -8,22 +8,25 @@ type ArchiveCardProps = {
   title: string;
   description: string;
   youtubeUrl: string;
+  thumbnailUrl?: string;
 };
 
-export function ArchiveCard({ id, title, description, youtubeUrl }: ArchiveCardProps) {
+export function ArchiveCard({ id, title, description, youtubeUrl, thumbnailUrl }: ArchiveCardProps) {
   const videoId = extractYouTubeId(youtubeUrl);
+  const thumbnailSrc = thumbnailUrl || (videoId ? `https://img.youtube.com/vi/${videoId}/mqdefault.jpg` : null);
 
   return (
     <Link href={`/archives/${id}`}>
       <Card className="group transition-all duration-300 cursor-pointer hover:shadow-lg hover:shadow-slate-200/50 hover:-translate-y-1 bg-white border-slate-200 overflow-hidden h-full">
         <div className="relative aspect-video w-full overflow-hidden">
-          {videoId ? (
+          {thumbnailSrc ? (
             <Image
-              src={`https://img.youtube.com/vi/${videoId}/mqdefault.jpg`}
+              src={thumbnailSrc}
               alt={title}
               fill
               className="object-cover group-hover:scale-105 transition-transform duration-500"
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              unoptimized={thumbnailSrc.endsWith('.svg')}
             />
           ) : (
             <div className="w-full h-full bg-slate-200 flex items-center justify-center">

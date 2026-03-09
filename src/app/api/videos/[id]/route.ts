@@ -27,6 +27,7 @@ export async function PUT(
     {
       title: body.title,
       youtube_url: body.youtube_url,
+      thumbnail_url: body.thumbnail_url || "",
       level: body.level,
       description: body.description || "",
       sort_order: body.sort_order || 0,

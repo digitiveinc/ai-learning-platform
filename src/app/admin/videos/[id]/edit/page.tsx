@@ -44,6 +44,7 @@ export default async function EditVideoPage({
               id: video.$id,
               title: video.title,
               youtubeUrl: video.youtube_url,
+              thumbnailUrl: video.thumbnail_url || "",
               level: video.level,
               description: video.description,
               sortOrder: video.sort_order,

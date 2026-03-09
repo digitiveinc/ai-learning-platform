@@ -10,6 +10,7 @@ export type Video = {
   title: string;
   description: string;
   youtube_url: string;
+  thumbnail_url?: string;
   level: "beginner" | "intermediate" | "advanced";
   sort_order: number;
   created_at: string;
@@ -59,6 +60,7 @@ export type Archive = {
   title: string;
   description: string;
   youtube_url: string;
+  thumbnail_url?: string;
   target_type: "company" | "user";
   target_id: string;
   created_by: string;

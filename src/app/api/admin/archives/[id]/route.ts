@@ -55,7 +55,7 @@ export async function PUT(
       return NextResponse.json({ error: "このアーカイブを編集する権限がありません" }, { status: 403 });
     }
 
-    const { title, description, youtube_url, target_type, target_id } = await request.json();
+    const { title, description, youtube_url, thumbnail_url, target_type, target_id } = await request.json();
 
     // 更新先のスコープも検証
     if (target_type && target_id) {
@@ -68,6 +68,7 @@ export async function PUT(
     if (title !== undefined) updateData.title = title;
     if (description !== undefined) updateData.description = description;
     if (youtube_url !== undefined) updateData.youtube_url = youtube_url;
+    if (thumbnail_url !== undefined) updateData.thumbnail_url = thumbnail_url;
     if (target_type !== undefined) updateData.target_type = target_type;
     if (target_id !== undefined) updateData.target_id = target_id;
 

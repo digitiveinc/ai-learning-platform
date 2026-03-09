@@ -20,6 +20,7 @@ import {
   APPWRITE_USER_SETTINGS_COLLECTION_ID,
 } from "@/lib/appwrite/config";
 import { TARGET_TYPE_LABELS } from "@/lib/types";
+import { extractYouTubeId } from "@/lib/youtube";
 import type { Archive } from "@/lib/types";
 import { ArchiveDeleteButton } from "./delete-button";
 
@@ -70,6 +71,7 @@ export default async function AdminArchivesPage() {
       title: d.title,
       description: d.description || "",
       youtube_url: d.youtube_url,
+      thumbnail_url: d.thumbnail_url || "",
       target_type: d.target_type,
       target_id: d.target_id,
       created_by: d.created_by,
@@ -99,6 +101,7 @@ export default async function AdminArchivesPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-20">サムネ</TableHead>
                 <TableHead>タイトル</TableHead>
                 <TableHead>対象種別</TableHead>
                 <TableHead>対象名</TableHead>
@@ -109,13 +112,23 @@ export default async function AdminArchivesPage() {
             <TableBody>
               {archives.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-slate-400 py-8">
+                  <TableCell colSpan={6} className="text-center text-slate-400 py-8">
                     アーカイブがありません
                   </TableCell>
                 </TableRow>
               ) : (
                 archives.map((a) => (
                   <TableRow key={a.id}>
+                    <TableCell>
+                      {(() => {
+                        const thumb = a.thumbnail_url || (extractYouTubeId(a.youtube_url) ? `https://img.youtube.com/vi/${extractYouTubeId(a.youtube_url)}/mqdefault.jpg` : null);
+                        return thumb ? (
+                          <img src={thumb} alt="" className="w-16 h-10 object-cover rounded" />
+                        ) : (
+                          <div className="w-16 h-10 bg-slate-200 rounded flex items-center justify-center text-xs text-slate-400">-</div>
+                        );
+                      })()}
+                    </TableCell>
                     <TableCell className="font-medium">{a.title}</TableCell>
                     <TableCell>
                       <Badge className="bg-amber-100 text-amber-800">
