@@ -1,75 +1,69 @@
+export type UserRole = "superadmin" | "admin" | "user";
+
 export type Profile = {
-  id: string;
+  uid: string;
   email: string;
-  role: "superadmin" | "admin" | "user";
-  created_at: string;
+  displayName: string;
+  role: UserRole;
+  level: "beginner" | "intermediate" | "advanced";
+  accessMode: "exact" | "cumulative";
+  createdAt: string;
+  companyId?: string;
+  employeeId?: string;
 };
 
 export type Video = {
   id: string;
   title: string;
   description: string;
-  youtube_url: string;
-  thumbnail_url?: string;
+  youtubeId: string;
   level: "beginner" | "intermediate" | "advanced";
-  sort_order: number;
-  created_at: string;
-  created_by: string;
-};
-
-export type UserSettings = {
-  user_id: string;
-  employee_id: string;
-  access_mode: "exact" | "cumulative";
-  display_name?: string;
-  company_id?: string;
+  sortOrder: number;
+  createdAt: string;
+  createdBy: string;
 };
 
 export type WatchProgress = {
-  user_id: string;
-  video_id: string;
+  videoId: string;
   watched: boolean;
-  watched_at?: string;
-  progress?: number;
+  watchedAt?: string;
+  progress: number;
 };
 
-export type Company = {
-  id: string;
-  company_name: string;
-  company_code: string;
-  is_active: boolean;
-  created_at: string;
+export type UserProgressDoc = {
+  watched: Record<string, { watched: boolean; watchedAt?: string; progress: number }>;
 };
 
-export type Inquiry = {
+export type Quote = {
   id: string;
-  user_id: string;
-  user_name: string;
-  subject: string;
-  message: string;
-  status: "open" | "in_progress" | "resolved";
-  created_at: string;
-  reply_message?: string;
-  reply_phone?: string;
-  replied_at?: string;
-  replied_by?: string;
+  text: string;
+  author?: string;
+  publishDate: string;
+  createdAt: string;
+  createdBy: string;
 };
 
 export type Archive = {
   id: string;
   title: string;
   description: string;
-  youtube_url: string;
-  thumbnail_url?: string;
-  target_type: "company" | "user";
-  target_id: string;
-  created_by: string;
-  created_at: string;
+  youtubeId: string;
+  thumbnailUrl?: string;
+  createdAt: string;
+  createdBy: string;
 };
 
-export const TARGET_TYPE_LABELS: Record<Archive["target_type"], string> = {
-  company: "企業",
-  user: "ユーザー",
+export type Inquiry = {
+  id: string;
+  userId: string;
+  userEmail: string;
+  subject: string;
+  message: string;
+  status: "open" | "in_progress" | "resolved";
+  createdAt: string;
+  replyMessage?: string;
+  repliedAt?: string;
+  repliedBy?: string;
 };
 
 export const LEVEL_LABELS: Record<Video["level"], string> = {

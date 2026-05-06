@@ -1,104 +1,109 @@
 import { NextResponse } from "next/server";
-import { ID } from "node-appwrite";
-import { createAdminClient } from "@/lib/appwrite/server";
-import { getUser, getUserRole, getUserCompanyId } from "@/lib/appwrite/server";
-import {
-  APPWRITE_DATABASE_ID,
-  APPWRITE_USER_SETTINGS_COLLECTION_ID,
-} from "@/lib/appwrite/config";
-import { employeeIdToEmail } from "@/lib/appwrite/employee-id";
-import { getCompanyByCode } from "@/lib/appwrite/server";
+import { cookies } from "next/headers";
+import { adminAuth, adminDb } from "@/lib/firebase/admin";
+import { buildLoginEmail } from "@/lib/login-id";
 
-export async function POST(request: Request) {
-  const currentUser = await getUser();
-  if (!currentUser) {
+async function getAuthUser() {
+  const cookieStore = await cookies();
+  const session = cookieStore.get("__session")?.value;
+  if (!session) return null;
+  try {
+    return await adminAuth().verifySessionCookie(session, true);
+  } catch { return null; }
+}
+
+export async function GET() {
+  const user = await getAuthUser();
+  if (!user) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   }
-  const role = await getUserRole(currentUser.$id);
+
+  const role = user.role as string | undefined;
   if (role !== "admin" && role !== "superadmin") {
     return NextResponse.json({ error: "管理者権限が必要です" }, { status: 403 });
   }
 
-  const { employeeId, password, displayName, level, accessMode, companyId } = await request.json();
+  const db = adminDb();
+  const snapshot = await db.collection("users").orderBy("createdAt", "desc").get();
 
-  if (!employeeId || !password) {
-    return NextResponse.json(
-      { error: "社員IDとパスワードは必須です" },
-      { status: 400 }
-    );
+  const users = snapshot.docs.map((d) => ({
+    id: d.id,
+    ...d.data(),
+  }));
+
+  return NextResponse.json({ users });
+}
+
+export async function POST(request: Request) {
+  const user = await getAuthUser();
+  if (!user) {
+    return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   }
 
-  if (password.length < 8) {
-    return NextResponse.json(
-      { error: "パスワードは8文字以上で入力してください" },
-      { status: 400 }
-    );
+  const role = user.role as string | undefined;
+  if (role !== "admin" && role !== "superadmin") {
+    return NextResponse.json({ error: "管理者権限が必要です" }, { status: 403 });
   }
 
-  const validLevels = ["beginner", "intermediate", "advanced"];
-  if (level && !validLevels.includes(level)) {
-    return NextResponse.json({ error: "無効なレベルです" }, { status: 400 });
-  }
+  const body = await request.json();
+  const { email, displayName, role: userRole, level, accessMode, companyId, employeeId, password } = body;
 
-  // 会社ID決定: superadminは指定可能、adminは自社のみ
-  let targetCompanyId = companyId;
-  if (role !== "superadmin") {
-    targetCompanyId = await getUserCompanyId(currentUser.$id);
-  }
+  const db = adminDb();
 
-  // 会社のcompany_codeを取得（メール生成用）
-  let companyCode: string | undefined;
-  if (targetCompanyId) {
-    const { databases } = createAdminClient();
-    try {
-      const companyDoc = await databases.getDocument(
-        APPWRITE_DATABASE_ID,
-        "companies",
-        targetCompanyId
-      );
-      companyCode = companyDoc.company_code;
-    } catch {
-      // company_codeが取得できない場合はフォールバック
+  // 企業ID + ユーザーID + パスワード方式
+  if (companyId && employeeId && password) {
+    const loginEmail = buildLoginEmail(companyId, employeeId);
+
+    // 重複チェック
+    const existing = await db.collection("users")
+      .where("companyId", "==", companyId)
+      .where("employeeId", "==", employeeId)
+      .limit(1)
+      .get();
+    if (!existing.empty) {
+      return NextResponse.json({ error: "この企業ID・ユーザーIDはすでに登録されています" }, { status: 400 });
     }
-  }
 
-  const email = employeeIdToEmail(employeeId, companyCode);
-
-  try {
-    const { users, databases } = createAdminClient();
-
-    // ユーザー作成
-    const newUser = await users.create(
-      ID.unique(),
-      email,
-      undefined,
+    const authUser = await adminAuth().createUser({
+      email: loginEmail,
       password,
-      displayName || employeeId
-    );
+      displayName: displayName || "",
+    });
 
-    // レベルラベル設定
-    if (level) {
-      await users.updateLabels(newUser.$id, [level]);
-    }
+    const claims = {
+      role: userRole || "user",
+      level: level || "beginner",
+      accessMode: accessMode || "cumulative",
+      displayName: displayName || "",
+    };
+    await adminAuth().setCustomUserClaims(authUser.uid, claims);
 
-    // user_settings ドキュメント作成
-    await databases.createDocument(
-      APPWRITE_DATABASE_ID,
-      APPWRITE_USER_SETTINGS_COLLECTION_ID,
-      ID.unique(),
-      {
-        user_id: newUser.$id,
-        employee_id: employeeId.toUpperCase(),
-        access_mode: accessMode || "cumulative",
-        display_name: displayName || "",
-        company_id: targetCompanyId || "",
-      }
-    );
+    await db.collection("users").doc(authUser.uid).set({
+      uid: authUser.uid,
+      email: loginEmail,
+      companyId,
+      employeeId,
+      ...claims,
+      createdAt: new Date().toISOString(),
+    });
 
-    return NextResponse.json({ success: true, userId: newUser.$id });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "ユーザー作成に失敗しました";
-    console.error("Create user error:", err);
-    return NextResponse.json({ error: message }, { status: 400 });
+    return NextResponse.json({ success: true, id: authUser.uid });
   }
+
+  // Googleアカウント方式（メールアドレスで事前登録）
+  if (!email) {
+    return NextResponse.json({ error: "メールアドレスまたは企業ID・ユーザーID・パスワードが必要です" }, { status: 400 });
+  }
+
+  const ref = db.collection("users").doc();
+  await ref.set({
+    email,
+    displayName: displayName || "",
+    role: userRole || "user",
+    level: level || "beginner",
+    accessMode: accessMode || "cumulative",
+    createdAt: new Date().toISOString(),
+  });
+
+  return NextResponse.json({ success: true, id: ref.id });
 }

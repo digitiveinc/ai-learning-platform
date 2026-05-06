@@ -14,36 +14,36 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-type CompanyOption = {
-  id: string;
-  company_name: string;
-  company_code: string;
-};
+type LoginType = "google" | "id";
 
 type UserFormProps = {
   mode: "create" | "edit";
   currentRole?: string;
-  currentCompanyId?: string;
-  companies?: CompanyOption[];
   initialData?: {
     id: string;
-    employeeId: string;
+    email: string;
     displayName: string;
     level: string;
     accessMode: string;
     role: string;
     companyId?: string;
+    employeeId?: string;
   };
 };
 
-export function UserForm({ mode, currentRole, currentCompanyId, companies = [], initialData }: UserFormProps) {
+export function UserForm({ mode, currentRole, initialData }: UserFormProps) {
+  const hasIdLogin = !!(initialData?.companyId && initialData?.employeeId);
+  const [loginType, setLoginType] = useState<LoginType>(
+    mode === "edit" && hasIdLogin ? "id" : mode === "edit" ? "google" : "id"
+  );
+  const [email, setEmail] = useState(initialData?.email || "");
+  const [companyId, setCompanyId] = useState(initialData?.companyId || "");
   const [employeeId, setEmployeeId] = useState(initialData?.employeeId || "");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState(initialData?.displayName || "");
   const [level, setLevel] = useState(initialData?.level || "beginner");
   const [accessMode, setAccessMode] = useState(initialData?.accessMode || "cumulative");
   const [role, setRole] = useState(initialData?.role || "user");
-  const [companyId, setCompanyId] = useState(initialData?.companyId || currentCompanyId || "");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -57,10 +57,15 @@ export function UserForm({ mode, currentRole, currentCompanyId, companies = [], 
 
     try {
       if (mode === "create") {
+        const body =
+          loginType === "id"
+            ? { companyId, employeeId, password, displayName, level, accessMode, role }
+            : { email, displayName, level, accessMode, role };
+
         const res = await fetch("/api/admin/users", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ employeeId, password, displayName, level, accessMode, companyId }),
+          body: JSON.stringify(body),
         });
         const data = await res.json();
         if (!res.ok) {
@@ -72,14 +77,7 @@ export function UserForm({ mode, currentRole, currentCompanyId, companies = [], 
         const res = await fetch(`/api/admin/users/${initialData!.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            displayName,
-            level,
-            accessMode,
-            role,
-            ...(password ? { password } : {}),
-            ...(isSuperAdmin ? { companyId } : {}),
-          }),
+          body: JSON.stringify({ displayName, level, accessMode, role }),
         });
         const data = await res.json();
         if (!res.ok) {
@@ -103,35 +101,106 @@ export function UserForm({ mode, currentRole, currentCompanyId, companies = [], 
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-5">
-          {isSuperAdmin && companies.length > 0 && (
+          {/* ログイン方式（新規作成時のみ） */}
+          {mode === "create" && (
             <div className="space-y-2">
-              <Label>企業</Label>
-              <Select value={companyId} onValueChange={setCompanyId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="企業を選択" />
-                </SelectTrigger>
-                <SelectContent>
-                  {companies.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.company_code} - {c.company_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>ログイン方式</Label>
+              <div className="flex rounded-lg bg-gray-100 p-1">
+                <button
+                  type="button"
+                  onClick={() => setLoginType("id")}
+                  className={`flex-1 py-2 rounded-md text-sm font-medium transition-all ${
+                    loginType === "id"
+                      ? "bg-white text-gray-900 shadow-sm"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  企業ID・ユーザーID
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLoginType("google")}
+                  className={`flex-1 py-2 rounded-md text-sm font-medium transition-all ${
+                    loginType === "google"
+                      ? "bg-white text-gray-900 shadow-sm"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  Googleアカウント
+                </button>
+              </div>
             </div>
           )}
 
-          <div className="space-y-2">
-            <Label htmlFor="employeeId">社員ID</Label>
-            <Input
-              id="employeeId"
-              placeholder="例: EMP001"
-              value={employeeId}
-              onChange={(e) => setEmployeeId(e.target.value)}
-              disabled={mode === "edit"}
-              required
-            />
-          </div>
+          {/* ID方式フィールド */}
+          {loginType === "id" && mode === "create" && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="companyId">企業ID</Label>
+                <Input
+                  id="companyId"
+                  placeholder="例: DGT001"
+                  value={companyId}
+                  onChange={(e) => setCompanyId(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="employeeId">ユーザーID</Label>
+                <Input
+                  id="employeeId"
+                  placeholder="例: ADMIN001"
+                  value={employeeId}
+                  onChange={(e) => setEmployeeId(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">初期パスワード</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="初期パスワードを設定"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+            </>
+          )}
+
+          {/* Google方式フィールド */}
+          {(loginType === "google" || mode === "edit") && (
+            <>
+              {mode === "edit" && hasIdLogin ? (
+                <div className="space-y-2">
+                  <Label>企業ID / ユーザーID</Label>
+                  <div className="flex gap-2">
+                    <Input value={initialData?.companyId || ""} disabled className="bg-gray-50" />
+                    <Input value={initialData?.employeeId || ""} disabled className="bg-gray-50" />
+                  </div>
+                </div>
+              ) : loginType === "google" || mode === "edit" ? (
+                <div className="space-y-2">
+                  <Label htmlFor="email">Googleアカウント（メールアドレス）</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="example@gmail.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={mode === "edit"}
+                    required={mode === "create"}
+                  />
+                  {mode === "create" && (
+                    <p className="text-xs text-slate-500">
+                      ユーザーが初回ログイン時にこのメールアドレスで自動紐付けされます
+                    </p>
+                  )}
+                </div>
+              ) : null}
+            </>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="displayName">表示名</Label>
@@ -140,20 +209,6 @@ export function UserForm({ mode, currentRole, currentCompanyId, companies = [], 
               placeholder="例: 山田太郎"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="password">
-              パスワード{mode === "edit" ? "（変更する場合のみ）" : ""}
-            </Label>
-            <Input
-              id="password"
-              type="password"
-              placeholder="8文字以上"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required={mode === "create"}
             />
           </div>
 
@@ -184,23 +239,21 @@ export function UserForm({ mode, currentRole, currentCompanyId, companies = [], 
             </Select>
           </div>
 
-          {mode === "edit" && (
-            <div className="space-y-2">
-              <Label>ロール</Label>
-              <Select value={role} onValueChange={setRole}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="user">一般</SelectItem>
-                  <SelectItem value="admin">管理者</SelectItem>
-                  {isSuperAdmin && (
-                    <SelectItem value="superadmin">スーパー管理者</SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+          <div className="space-y-2">
+            <Label>ロール</Label>
+            <Select value={role} onValueChange={setRole}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="user">一般</SelectItem>
+                <SelectItem value="admin">管理者</SelectItem>
+                {isSuperAdmin && (
+                  <SelectItem value="superadmin">スーパー管理者</SelectItem>
+                )}
+              </SelectContent>
+            </Select>
+          </div>
 
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3">
@@ -211,18 +264,10 @@ export function UserForm({ mode, currentRole, currentCompanyId, companies = [], 
           <div className="flex gap-3">
             <Button type="submit" disabled={loading}>
               {loading
-                ? mode === "create"
-                  ? "作成中..."
-                  : "更新中..."
-                : mode === "create"
-                  ? "ユーザーを作成"
-                  : "更新する"}
+                ? mode === "create" ? "作成中..." : "更新中..."
+                : mode === "create" ? "ユーザーを作成" : "更新する"}
             </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => router.push("/admin/users")}
-            >
+            <Button type="button" variant="outline" onClick={() => router.push("/admin/users")}>
               キャンセル
             </Button>
           </div>
