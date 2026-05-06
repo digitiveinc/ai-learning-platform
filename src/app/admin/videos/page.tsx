@@ -1,8 +1,6 @@
 import Link from "next/link";
-import { Query } from "node-appwrite";
-import { requireAdmin } from "@/lib/appwrite/auth-guard";
-import { createAdminClient, getUserEmployeeId } from "@/lib/appwrite/server";
-import { APPWRITE_DATABASE_ID, APPWRITE_VIDEOS_COLLECTION_ID } from "@/lib/appwrite/config";
+import { requireAdmin } from "@/lib/firebase/auth-guard";
+import { adminDb } from "@/lib/firebase/admin";
 import { Header } from "@/components/header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,28 +13,21 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { LEVEL_LABELS, LEVEL_COLORS } from "@/lib/types";
-import { extractYouTubeId } from "@/lib/youtube";
 import { DeleteVideoButton } from "./delete-button";
 import type { Video } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminVideosPage() {
-  const { user, role } = await requireAdmin();
-  const employeeId = await getUserEmployeeId(user.$id);
+  const user = await requireAdmin();
 
-  const { databases } = createAdminClient();
-  const response = await databases.listDocuments(
-    APPWRITE_DATABASE_ID,
-    APPWRITE_VIDEOS_COLLECTION_ID,
-    [Query.orderAsc("sort_order"), Query.limit(500)]
-  );
-
-  const videoList = response.documents;
+  const db = adminDb();
+  const snap = await db.collection("videos").orderBy("sortOrder").get();
+  const videoList = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Video));
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header email={user!.email} role={role} employeeId={employeeId} />
+      <Header email={user.email} role={user.role} displayName={user.displayName} />
       <main className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -66,17 +57,15 @@ export default async function AdminVideosPage() {
               {videoList.length > 0 ? (
                 videoList.map((video) => {
                   const level = video.level as Video["level"];
+                  const thumbSrc = `https://img.youtube.com/vi/${video.youtubeId}/mqdefault.jpg`;
                   return (
-                    <TableRow key={video.$id}>
+                    <TableRow key={video.id}>
                       <TableCell>
-                        {(() => {
-                          const thumb = video.thumbnail_url || (extractYouTubeId(video.youtube_url) ? `https://img.youtube.com/vi/${extractYouTubeId(video.youtube_url)}/mqdefault.jpg` : null);
-                          return thumb ? (
-                            <img src={thumb} alt="" className="w-16 h-10 object-cover rounded" />
-                          ) : (
-                            <div className="w-16 h-10 bg-slate-200 rounded flex items-center justify-center text-xs text-slate-400">-</div>
-                          );
-                        })()}
+                        {video.youtubeId ? (
+                          <img src={thumbSrc} alt="" className="w-16 h-10 object-cover rounded" />
+                        ) : (
+                          <div className="w-16 h-10 bg-slate-200 rounded flex items-center justify-center text-xs text-slate-400">-</div>
+                        )}
                       </TableCell>
                       <TableCell className="font-medium">{video.title}</TableCell>
                       <TableCell>
@@ -84,18 +73,18 @@ export default async function AdminVideosPage() {
                           {LEVEL_LABELS[level]}
                         </Badge>
                       </TableCell>
-                      <TableCell>{video.sort_order}</TableCell>
+                      <TableCell>{video.sortOrder}</TableCell>
                       <TableCell>
-                        {new Date(video.$createdAt).toLocaleDateString("ja-JP")}
+                        {new Date(video.createdAt).toLocaleDateString("ja-JP")}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">
-                          <Link href={`/admin/videos/${video.$id}/edit`}>
+                          <Link href={`/admin/videos/${video.id}/edit`}>
                             <Button variant="outline" size="sm">
                               編集
                             </Button>
                           </Link>
-                          <DeleteVideoButton videoId={video.$id} videoTitle={video.title} />
+                          <DeleteVideoButton videoId={video.id} videoTitle={video.title} />
                         </div>
                       </TableCell>
                     </TableRow>

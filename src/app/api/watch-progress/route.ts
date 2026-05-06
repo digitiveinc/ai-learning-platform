@@ -1,50 +1,32 @@
 import { NextResponse } from "next/server";
-import { ID, Query } from "node-appwrite";
-import { getUser } from "@/lib/appwrite/server";
-import { createAdminClient } from "@/lib/appwrite/server";
-import {
-  APPWRITE_DATABASE_ID,
-  APPWRITE_WATCH_PROGRESS_COLLECTION_ID,
-} from "@/lib/appwrite/config";
+import { cookies } from "next/headers";
+import { adminAuth, adminDb } from "@/lib/firebase/admin";
 
-export async function GET(request: Request) {
-  const currentUser = await getUser();
-  if (!currentUser) {
+async function getAuthUser() {
+  const cookieStore = await cookies();
+  const session = cookieStore.get("__session")?.value;
+  if (!session) return null;
+  try {
+    return await adminAuth().verifySessionCookie(session, true);
+  } catch { return null; }
+}
+
+export async function GET() {
+  const user = await getAuthUser();
+  if (!user) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   }
 
-  const { searchParams } = new URL(request.url);
-  const videoId = searchParams.get("videoId");
+  const db = adminDb();
+  const doc = await db.collection("userProgress").doc(user.uid).get();
+  const data = doc.data();
 
-  const { databases } = createAdminClient();
-
-  const queries = [
-    Query.equal("user_id", currentUser.$id),
-    Query.limit(500),
-  ];
-  if (videoId) {
-    queries.push(Query.equal("video_id", videoId));
-  }
-
-  const res = await databases.listDocuments(
-    APPWRITE_DATABASE_ID,
-    APPWRITE_WATCH_PROGRESS_COLLECTION_ID,
-    queries
-  );
-
-  const progress = res.documents.map((d) => ({
-    video_id: d.video_id,
-    watched: d.watched,
-    watched_at: d.watched_at,
-    progress: d.progress || 0,
-  }));
-
-  return NextResponse.json({ progress });
+  return NextResponse.json({ watched: data?.watched ?? {} });
 }
 
 export async function POST(request: Request) {
-  const currentUser = await getUser();
-  if (!currentUser) {
+  const user = await getAuthUser();
+  if (!user) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   }
 
@@ -55,88 +37,60 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "videoIdは必須です" }, { status: 400 });
   }
 
-  const { databases } = createAdminClient();
+  const db = adminDb();
+  const docRef = db.collection("userProgress").doc(user.uid);
 
-  // 既存のレコードを検索
-  const existing = await databases.listDocuments(
-    APPWRITE_DATABASE_ID,
-    APPWRITE_WATCH_PROGRESS_COLLECTION_ID,
-    [
-      Query.equal("user_id", currentUser.$id),
-      Query.equal("video_id", videoId),
-      Query.limit(1),
-    ]
-  );
+  // 既存データを取得して現在の watched 状態を確認
+  const existing = await docRef.get();
+  const existingData = existing.data();
+  const currentEntry = existingData?.watched?.[videoId] as { watched?: boolean; progress?: number; watchedAt?: string } | undefined;
 
-  // progress指定の場合（自動トラッキング）
   if (typeof progress === "number") {
     const autoWatched = progress >= 90;
-    const updateData: Record<string, unknown> = { progress };
-    if (autoWatched) {
-      updateData.watched = true;
-      updateData.watched_at = new Date().toISOString();
+    const alreadyWatched = currentEntry?.watched === true;
+
+    // 既存 progress より大きい場合のみ更新
+    const currentProgress = currentEntry?.progress ?? 0;
+    if (currentProgress >= progress && !autoWatched) {
+      return NextResponse.json({ success: true, autoWatched: false });
     }
 
-    if (existing.documents.length > 0) {
-      const doc = existing.documents[0];
-      // 既に視聴済みの場合はwatchedを上書きしない
-      if (doc.watched) {
-        delete updateData.watched;
-        delete updateData.watched_at;
-      }
-      // 既存のprogressより大きい場合のみ更新
-      if ((doc.progress || 0) < progress) {
-        await databases.updateDocument(
-          APPWRITE_DATABASE_ID,
-          APPWRITE_WATCH_PROGRESS_COLLECTION_ID,
-          doc.$id,
-          updateData
-        );
-      }
-    } else {
-      await databases.createDocument(
-        APPWRITE_DATABASE_ID,
-        APPWRITE_WATCH_PROGRESS_COLLECTION_ID,
-        ID.unique(),
-        {
-          user_id: currentUser.$id,
-          video_id: videoId,
-          watched: autoWatched,
-          watched_at: autoWatched ? new Date().toISOString() : null,
-          progress,
-        }
-      );
+    const entry: Record<string, unknown> = { progress };
+
+    if (autoWatched && !alreadyWatched) {
+      entry.watched = true;
+      entry.watchedAt = new Date().toISOString();
+    } else if (alreadyWatched) {
+      // 既に視聴済みの場合は watched/watchedAt を保持
+      entry.watched = true;
+      entry.watchedAt = currentEntry?.watchedAt ?? new Date().toISOString();
     }
 
-    return NextResponse.json({ success: true, autoWatched });
+    await docRef.set(
+      { watched: { [videoId]: entry } },
+      { merge: true }
+    );
+
+    return NextResponse.json({ success: true, autoWatched: autoWatched && !alreadyWatched });
   }
 
-  // watched指定の場合（旧来の手動切り替え、後方互換）
   if (typeof watched === "boolean") {
-    if (existing.documents.length > 0) {
-      await databases.updateDocument(
-        APPWRITE_DATABASE_ID,
-        APPWRITE_WATCH_PROGRESS_COLLECTION_ID,
-        existing.documents[0].$id,
-        {
-          watched,
-          watched_at: watched ? new Date().toISOString() : null,
-        }
-      );
-    } else {
-      await databases.createDocument(
-        APPWRITE_DATABASE_ID,
-        APPWRITE_WATCH_PROGRESS_COLLECTION_ID,
-        ID.unique(),
-        {
-          user_id: currentUser.$id,
-          video_id: videoId,
-          watched,
-          watched_at: watched ? new Date().toISOString() : null,
-          progress: 0,
-        }
-      );
+    const alreadyWatched = currentEntry?.watched === true;
+    const entry: Record<string, unknown> = {
+      watched,
+      watchedAt: watched ? new Date().toISOString() : null,
+      progress: currentEntry?.progress ?? 0,
+    };
+
+    // 既に watched = true の場合は上書きしない（progress のみ更新）
+    if (alreadyWatched && !watched) {
+      return NextResponse.json({ success: true });
     }
+
+    await docRef.set(
+      { watched: { [videoId]: entry } },
+      { merge: true }
+    );
 
     return NextResponse.json({ success: true });
   }

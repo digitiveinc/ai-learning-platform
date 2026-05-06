@@ -71,26 +71,17 @@ export function InquiryHistory() {
             </div>
             <p className="text-sm text-slate-600 whitespace-pre-wrap">{inq.message}</p>
             <p className="text-xs text-slate-400">
-              {new Date(inq.created_at).toLocaleString("ja-JP")}
+              {new Date(inq.createdAt).toLocaleString("ja-JP")}
             </p>
 
-            {/* 回答表示 */}
-            {inq.reply_message && (
+            {inq.replyMessage && (
               <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mt-2 space-y-2">
                 <p className="text-xs font-medium text-slate-500">担当者からの回答</p>
-                <p className="text-sm whitespace-pre-wrap">{inq.reply_message}</p>
-                {inq.reply_phone && (
-                  <p className="text-sm">
-                    <span className="text-slate-500">連絡先: </span>
-                    <a href={`tel:${inq.reply_phone}`} className="text-blue-600 font-medium">
-                      {inq.reply_phone}
-                    </a>
-                  </p>
-                )}
-                {inq.replied_at && (
+                <p className="text-sm whitespace-pre-wrap">{inq.replyMessage}</p>
+                {inq.repliedAt && (
                   <p className="text-xs text-slate-400">
-                    回答日時: {new Date(inq.replied_at).toLocaleString("ja-JP")}
-                    {inq.replied_by && ` (${inq.replied_by})`}
+                    回答日時: {new Date(inq.repliedAt).toLocaleString("ja-JP")}
+                    {inq.repliedBy && ` (${inq.repliedBy})`}
                   </p>
                 )}
               </div>

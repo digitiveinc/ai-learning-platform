@@ -48,6 +48,17 @@
 }
 
 :root {
+  /* 一門会 カラーパレット */
+  --ik-brown-dark: #3d1f0a;
+  --ik-brown-mid: #7a4020;
+  --ik-amber: #c8872a;
+  --ik-amber-light: #e8a84a;
+  --ik-cream: #f5edd8;
+  --ik-cream-dark: #ede0c4;
+  --ik-gold: #b8924a;
+  --ik-charcoal: #2a1f1a;
+  --ik-card-bg: #fdf6e8;
+
   --radius: 0.625rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);

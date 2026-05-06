@@ -1,39 +1,33 @@
 import { NextResponse } from "next/server";
-import { getUser, getUserRole, createAdminClient } from "@/lib/appwrite/server";
+import { cookies } from "next/headers";
+import { adminAuth, adminDb } from "@/lib/firebase/admin";
 
-export async function PUT(
-  request: Request,
+async function getAuthUser() {
+  const cookieStore = await cookies();
+  const session = cookieStore.get("__session")?.value;
+  if (!session) return null;
+  try {
+    return await adminAuth().verifySessionCookie(session, true);
+  } catch { return null; }
+}
+
+export async function GET(
+  _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const user = await getUser();
+  const user = await getAuthUser();
   if (!user) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   }
 
-  const role = await getUserRole(user.$id);
-  if (role !== "admin") {
-    return NextResponse.json({ error: "権限がありません" }, { status: 403 });
-  }
-
   const { id } = await params;
-  const { role: newRole } = await request.json();
+  const db = adminDb();
+  const doc = await db.collection("users").doc(id).get();
 
-  if (newRole !== "admin" && newRole !== "user") {
-    return NextResponse.json({ error: "無効なロールです" }, { status: 400 });
+  if (!doc.exists) {
+    return NextResponse.json({ error: "見つかりません" }, { status: 404 });
   }
 
-  const { users } = createAdminClient();
-  const targetUser = await users.get(id);
-  const currentLabels = targetUser.labels || [];
-
-  let updatedLabels: string[];
-  if (newRole === "admin") {
-    updatedLabels = [...new Set([...currentLabels, "admin"])];
-  } else {
-    updatedLabels = currentLabels.filter((l: string) => l !== "admin");
-  }
-
-  await users.updateLabels(id, updatedLabels);
-
-  return NextResponse.json({ success: true });
+  const data = doc.data()!;
+  return NextResponse.json({ role: data.role ?? "user" });
 }

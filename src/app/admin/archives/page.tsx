@@ -1,9 +1,7 @@
 import Link from "next/link";
-import { Query } from "node-appwrite";
-import { requireAdmin } from "@/lib/appwrite/auth-guard";
-import { createAdminClient, getUserEmployeeId } from "@/lib/appwrite/server";
+import { requireAdmin } from "@/lib/firebase/auth-guard";
+import { adminDb } from "@/lib/firebase/admin";
 import { Header } from "@/components/header";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -13,79 +11,21 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  APPWRITE_DATABASE_ID,
-  APPWRITE_ARCHIVES_COLLECTION_ID,
-  APPWRITE_COMPANIES_COLLECTION_ID,
-  APPWRITE_USER_SETTINGS_COLLECTION_ID,
-} from "@/lib/appwrite/config";
-import { TARGET_TYPE_LABELS } from "@/lib/types";
-import { extractYouTubeId } from "@/lib/youtube";
-import type { Archive } from "@/lib/types";
 import { ArchiveDeleteButton } from "./delete-button";
+import type { Archive } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminArchivesPage() {
-  const { user: currentUser, role, companyId } = await requireAdmin();
-  const currentEmployeeId = await getUserEmployeeId(currentUser.$id);
+  const user = await requireAdmin();
 
-  const { databases } = createAdminClient();
-
-  let archives: (Archive & { targetName: string })[] = [];
-  if (APPWRITE_ARCHIVES_COLLECTION_ID) {
-    const queries = [Query.orderDesc("created_at"), Query.limit(500)];
-    if (role !== "superadmin" && companyId) {
-      queries.push(Query.equal("target_type", "company"));
-      queries.push(Query.equal("target_id", companyId));
-    }
-
-    const archivesRes = await databases.listDocuments(
-      APPWRITE_DATABASE_ID,
-      APPWRITE_ARCHIVES_COLLECTION_ID,
-      queries
-    );
-
-    // 企業名を解決
-    const companiesRes = await databases.listDocuments(
-      APPWRITE_DATABASE_ID,
-      APPWRITE_COMPANIES_COLLECTION_ID,
-      [Query.limit(500)]
-    );
-    const companyMap = new Map(
-      companiesRes.documents.map((d) => [d.$id, d.company_name])
-    );
-
-    // ユーザー名を解決
-    const settingsRes = await databases.listDocuments(
-      APPWRITE_DATABASE_ID,
-      APPWRITE_USER_SETTINGS_COLLECTION_ID,
-      [Query.limit(500)]
-    );
-    const userNameMap = new Map(
-      settingsRes.documents.map((d) => [d.user_id, d.display_name || d.employee_id])
-    );
-
-    archives = archivesRes.documents.map((d) => ({
-      id: d.$id,
-      title: d.title,
-      description: d.description || "",
-      youtube_url: d.youtube_url,
-      thumbnail_url: d.thumbnail_url || "",
-      target_type: d.target_type,
-      target_id: d.target_id,
-      created_by: d.created_by,
-      created_at: d.created_at,
-      targetName:
-        d.target_type === "company"
-          ? companyMap.get(d.target_id) || d.target_id
-          : userNameMap.get(d.target_id) || d.target_id,
-    }));
-  }
+  const db = adminDb();
+  const snap = await db.collection("archives").orderBy("createdAt", "desc").get();
+  const archives = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Archive));
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header email={currentUser!.email} role={role} employeeId={currentEmployeeId} />
+      <Header email={user.email} role={user.role} displayName={user.displayName} />
       <main className="container mx-auto px-4 py-8">
         <Link href="/admin" className="text-sm text-blue-600 hover:underline">
           ← 管理ダッシュボードに戻る
@@ -103,8 +43,7 @@ export default async function AdminArchivesPage() {
               <TableRow>
                 <TableHead className="w-20">サムネ</TableHead>
                 <TableHead>タイトル</TableHead>
-                <TableHead>対象種別</TableHead>
-                <TableHead>対象名</TableHead>
+                <TableHead>説明</TableHead>
                 <TableHead>作成日</TableHead>
                 <TableHead className="text-right">操作</TableHead>
               </TableRow>
@@ -112,45 +51,43 @@ export default async function AdminArchivesPage() {
             <TableBody>
               {archives.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-slate-400 py-8">
+                  <TableCell colSpan={5} className="text-center text-slate-400 py-8">
                     アーカイブがありません
                   </TableCell>
                 </TableRow>
               ) : (
-                archives.map((a) => (
-                  <TableRow key={a.id}>
-                    <TableCell>
-                      {(() => {
-                        const thumb = a.thumbnail_url || (extractYouTubeId(a.youtube_url) ? `https://img.youtube.com/vi/${extractYouTubeId(a.youtube_url)}/mqdefault.jpg` : null);
-                        return thumb ? (
-                          <img src={thumb} alt="" className="w-16 h-10 object-cover rounded" />
+                archives.map((a) => {
+                  const thumbSrc = a.thumbnailUrl ||
+                    (a.youtubeId ? `https://img.youtube.com/vi/${a.youtubeId}/mqdefault.jpg` : null);
+                  return (
+                    <TableRow key={a.id}>
+                      <TableCell>
+                        {thumbSrc ? (
+                          <img src={thumbSrc} alt="" className="w-16 h-10 object-cover rounded" />
                         ) : (
                           <div className="w-16 h-10 bg-slate-200 rounded flex items-center justify-center text-xs text-slate-400">-</div>
-                        );
-                      })()}
-                    </TableCell>
-                    <TableCell className="font-medium">{a.title}</TableCell>
-                    <TableCell>
-                      <Badge className="bg-amber-100 text-amber-800">
-                        {TARGET_TYPE_LABELS[a.target_type]}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{a.targetName}</TableCell>
-                    <TableCell>
-                      {new Date(a.created_at).toLocaleDateString("ja-JP")}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex gap-2 justify-end">
-                        <Link href={`/admin/archives/${a.id}/edit`}>
-                          <Button variant="outline" size="sm">
-                            編集
-                          </Button>
-                        </Link>
-                        <ArchiveDeleteButton archiveId={a.id} title={a.title} />
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
+                        )}
+                      </TableCell>
+                      <TableCell className="font-medium">{a.title}</TableCell>
+                      <TableCell className="max-w-xs truncate text-sm text-slate-500">
+                        {a.description || "-"}
+                      </TableCell>
+                      <TableCell>
+                        {new Date(a.createdAt).toLocaleDateString("ja-JP")}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex gap-2 justify-end">
+                          <Link href={`/admin/archives/${a.id}/edit`}>
+                            <Button variant="outline" size="sm">
+                              編集
+                            </Button>
+                          </Link>
+                          <ArchiveDeleteButton archiveId={a.id} title={a.title} />
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>

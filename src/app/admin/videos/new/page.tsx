@@ -1,18 +1,16 @@
 import Link from "next/link";
-import { requireAdmin } from "@/lib/appwrite/auth-guard";
-import { getUserEmployeeId } from "@/lib/appwrite/server";
+import { requireAdmin } from "@/lib/firebase/auth-guard";
 import { Header } from "@/components/header";
 import { VideoForm } from "@/components/video-form";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewVideoPage() {
-  const { user, role } = await requireAdmin();
-  const employeeId = await getUserEmployeeId(user.$id);
+  const user = await requireAdmin();
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header email={user!.email} role={role} employeeId={employeeId} />
+      <Header email={user.email} role={user.role} displayName={user.displayName} />
       <main className="container mx-auto px-4 py-8">
         <Link href="/admin/videos" className="text-sm text-blue-600 hover:underline">
           ← 動画管理に戻る

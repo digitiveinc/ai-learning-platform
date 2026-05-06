@@ -16,11 +16,10 @@ import { AccountSettingsDialog } from "@/components/account-settings-dialog";
 type HeaderProps = {
   email: string;
   role: string;
-  employeeId?: string;
   displayName?: string;
 };
 
-export function Header({ email, role, employeeId, displayName }: HeaderProps) {
+export function Header({ email, role, displayName }: HeaderProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -31,7 +30,7 @@ export function Header({ email, role, employeeId, displayName }: HeaderProps) {
     router.refresh();
   };
 
-  const shownName = displayName || employeeId || email.split("@")[0].toUpperCase();
+  const shownName = displayName || email.split("@")[0].toUpperCase();
   const initial = shownName.charAt(0).toUpperCase();
 
   const navItems = [
@@ -96,7 +95,7 @@ export function Header({ email, role, employeeId, displayName }: HeaderProps) {
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
                   <p className="text-sm font-medium leading-none">{shownName}</p>
-                  <p className="text-xs text-muted-foreground">{employeeId || email}</p>
+                  <p className="text-xs text-muted-foreground">{email}</p>
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />

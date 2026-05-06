@@ -1,22 +1,20 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Card, CardContent } from "@/components/ui/card";
-import { extractYouTubeId } from "@/lib/youtube";
 
 type VideoCardProps = {
   id: string;
   title: string;
   description: string;
-  youtubeUrl: string;
+  youtubeId: string;
   thumbnailUrl?: string;
   level: string;
   watched?: boolean;
   progress?: number;
 };
 
-export function VideoCard({ id, title, description, youtubeUrl, thumbnailUrl, level, watched, progress = 0 }: VideoCardProps) {
-  const videoId = extractYouTubeId(youtubeUrl);
-  const thumbnailSrc = thumbnailUrl || (videoId ? `https://img.youtube.com/vi/${videoId}/mqdefault.jpg` : null);
+export function VideoCard({ id, title, description, youtubeId, thumbnailUrl, level, watched, progress = 0 }: VideoCardProps) {
+  const thumbnailSrc = thumbnailUrl || (youtubeId ? `https://img.youtube.com/vi/${youtubeId}/mqdefault.jpg` : null);
 
   return (
     <Link href={`/videos/${level}/${id}`}>

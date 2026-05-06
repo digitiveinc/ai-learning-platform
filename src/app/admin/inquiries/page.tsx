@@ -1,11 +1,6 @@
 import Link from "next/link";
-import { requireAdmin } from "@/lib/appwrite/auth-guard";
-import { createAdminClient, getUserEmployeeId } from "@/lib/appwrite/server";
-import { Query } from "node-appwrite";
-import {
-  APPWRITE_DATABASE_ID,
-  APPWRITE_INQUIRIES_COLLECTION_ID,
-} from "@/lib/appwrite/config";
+import { requireAdmin } from "@/lib/firebase/auth-guard";
+import { adminDb } from "@/lib/firebase/admin";
 import { Header } from "@/components/header";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -18,6 +13,7 @@ import {
 } from "@/components/ui/table";
 import { InquiryStatusButton } from "./inquiry-status-button";
 import { InquiryReplyDialog } from "./inquiry-reply-dialog";
+import type { Inquiry } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -34,32 +30,15 @@ const statusColors: Record<string, string> = {
 };
 
 export default async function AdminInquiriesPage() {
-  const { user, role } = await requireAdmin();
-  const employeeId = await getUserEmployeeId(user.$id);
+  const user = await requireAdmin();
 
-  const { databases } = createAdminClient();
-  const res = await databases.listDocuments(
-    APPWRITE_DATABASE_ID,
-    APPWRITE_INQUIRIES_COLLECTION_ID,
-    [Query.orderDesc("created_at"), Query.limit(100)]
-  );
-
-  const inquiries = res.documents.map((d) => ({
-    id: d.$id,
-    user_name: d.user_name,
-    subject: d.subject,
-    message: d.message,
-    status: d.status || "open",
-    created_at: d.created_at,
-    reply_message: d.reply_message || undefined,
-    reply_phone: d.reply_phone || undefined,
-    replied_at: d.replied_at || undefined,
-    replied_by: d.replied_by || undefined,
-  }));
+  const db = adminDb();
+  const snap = await db.collection("inquiries").orderBy("createdAt", "desc").get();
+  const inquiries = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Inquiry));
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header email={user.email} role={role} employeeId={employeeId} />
+      <Header email={user.email} role={user.role} displayName={user.displayName} />
       <main className="container mx-auto px-4 py-8">
         <Link href="/admin" className="text-sm text-blue-600 hover:underline">
           &larr; 管理ダッシュボードに戻る
@@ -89,20 +68,20 @@ export default async function AdminInquiriesPage() {
                 inquiries.map((inq) => (
                   <TableRow key={inq.id}>
                     <TableCell className="whitespace-nowrap text-sm">
-                      {new Date(inq.created_at).toLocaleString("ja-JP")}
+                      {new Date(inq.createdAt).toLocaleString("ja-JP")}
                     </TableCell>
-                    <TableCell className="font-mono text-sm">{inq.user_name}</TableCell>
+                    <TableCell className="text-sm">{inq.userEmail}</TableCell>
                     <TableCell className="font-medium">{inq.subject}</TableCell>
                     <TableCell className="max-w-xs truncate text-sm text-gray-600">
                       {inq.message}
                     </TableCell>
                     <TableCell>
-                      <Badge className={statusColors[inq.status]}>
-                        {statusLabels[inq.status]}
+                      <Badge className={statusColors[inq.status] ?? statusColors.open}>
+                        {statusLabels[inq.status] ?? inq.status}
                       </Badge>
-                      {inq.replied_at && (
+                      {inq.repliedAt && (
                         <p className="text-xs text-gray-400 mt-1">
-                          {inq.replied_by} が回答
+                          {inq.repliedBy} が回答
                         </p>
                       )}
                     </TableCell>
@@ -112,7 +91,7 @@ export default async function AdminInquiriesPage() {
                           inquiryId={inq.id}
                           subject={inq.subject}
                           message={inq.message}
-                          existingReply={inq.reply_message}
+                          existingReply={inq.replyMessage}
                         />
                         <InquiryStatusButton
                           inquiryId={inq.id}

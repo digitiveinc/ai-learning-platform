@@ -1,19 +1,17 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Card, CardContent } from "@/components/ui/card";
-import { extractYouTubeId } from "@/lib/youtube";
 
 type ArchiveCardProps = {
   id: string;
   title: string;
   description: string;
-  youtubeUrl: string;
+  youtubeId: string;
   thumbnailUrl?: string;
 };
 
-export function ArchiveCard({ id, title, description, youtubeUrl, thumbnailUrl }: ArchiveCardProps) {
-  const videoId = extractYouTubeId(youtubeUrl);
-  const thumbnailSrc = thumbnailUrl || (videoId ? `https://img.youtube.com/vi/${videoId}/mqdefault.jpg` : null);
+export function ArchiveCard({ id, title, description, youtubeId, thumbnailUrl }: ArchiveCardProps) {
+  const thumbnailSrc = thumbnailUrl || (youtubeId ? `https://img.youtube.com/vi/${youtubeId}/mqdefault.jpg` : null);
 
   return (
     <Link href={`/archives/${id}`}>

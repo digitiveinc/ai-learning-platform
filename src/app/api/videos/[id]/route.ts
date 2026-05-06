@@ -1,38 +1,42 @@
 import { NextResponse } from "next/server";
-import { getUser, getUserRole, createAdminClient } from "@/lib/appwrite/server";
-import { APPWRITE_DATABASE_ID, APPWRITE_VIDEOS_COLLECTION_ID } from "@/lib/appwrite/config";
+import { cookies } from "next/headers";
+import { adminAuth, adminDb } from "@/lib/firebase/admin";
+
+async function getAuthUser() {
+  const cookieStore = await cookies();
+  const session = cookieStore.get("__session")?.value;
+  if (!session) return null;
+  try {
+    return await adminAuth().verifySessionCookie(session, true);
+  } catch { return null; }
+}
 
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const user = await getUser();
+  const user = await getAuthUser();
   if (!user) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   }
 
-  const role = await getUserRole(user.$id);
-  if (role !== "admin") {
+  const role = user.role as string | undefined;
+  if (role !== "admin" && role !== "superadmin") {
     return NextResponse.json({ error: "権限がありません" }, { status: 403 });
   }
 
   const { id } = await params;
   const body = await request.json();
-  const { databases } = createAdminClient();
+  const { title, youtubeId, description, level, sortOrder } = body;
 
-  await databases.updateDocument(
-    APPWRITE_DATABASE_ID,
-    APPWRITE_VIDEOS_COLLECTION_ID,
-    id,
-    {
-      title: body.title,
-      youtube_url: body.youtube_url,
-      thumbnail_url: body.thumbnail_url || "",
-      level: body.level,
-      description: body.description || "",
-      sort_order: body.sort_order || 0,
-    }
-  );
+  const db = adminDb();
+  await db.collection("videos").doc(id).update({
+    ...(title !== undefined && { title }),
+    ...(youtubeId !== undefined && { youtubeId }),
+    ...(description !== undefined && { description }),
+    ...(level !== undefined && { level }),
+    ...(sortOrder !== undefined && { sortOrder }),
+  });
 
   return NextResponse.json({ success: true });
 }
@@ -41,24 +45,19 @@ export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const user = await getUser();
+  const user = await getAuthUser();
   if (!user) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   }
 
-  const role = await getUserRole(user.$id);
-  if (role !== "admin") {
+  const role = user.role as string | undefined;
+  if (role !== "admin" && role !== "superadmin") {
     return NextResponse.json({ error: "権限がありません" }, { status: 403 });
   }
 
   const { id } = await params;
-  const { databases } = createAdminClient();
-
-  await databases.deleteDocument(
-    APPWRITE_DATABASE_ID,
-    APPWRITE_VIDEOS_COLLECTION_ID,
-    id
-  );
+  const db = adminDb();
+  await db.collection("videos").doc(id).delete();
 
   return NextResponse.json({ success: true });
 }

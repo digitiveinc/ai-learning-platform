@@ -13,16 +13,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { extractYouTubeId } from "@/lib/youtube";
 
 const THUMBNAIL_OPTIONS = [
   { label: "AI基礎研修", value: "/thumbnails/ai-basics.svg" },
   { label: "プロンプトエンジニアリング", value: "/thumbnails/prompt-engineering.svg" },
-  { label: "ChatGPT活用法", value: "/thumbnails/chatgpt-usage.svg" },
+  { label: "Copilot活用法", value: "/thumbnails/chatgpt-usage.svg" },
   { label: "AIビジネス活用", value: "/thumbnails/ai-business.svg" },
   { label: "機械学習入門", value: "/thumbnails/machine-learning.svg" },
   { label: "AI倫理・リスク管理", value: "/thumbnails/ai-ethics.svg" },
   { label: "生成AI概論", value: "/thumbnails/generative-ai.svg" },
-  { label: "AIツール実践", value: "/thumbnails/ai-tools.svg" },
+  { label: "Copilot実践（オフライン研修）", value: "/thumbnails/ai-tools.svg" },
   { label: "AI×DX推進", value: "/thumbnails/ai-dx.svg" },
   { label: "AIデータ分析", value: "/thumbnails/data-analysis.svg" },
 ];
@@ -32,56 +33,42 @@ type ArchiveFormProps = {
     id: string;
     title: string;
     description: string;
-    youtube_url: string;
-    thumbnail_url?: string;
-    target_type: string;
-    target_id: string;
+    youtubeId: string;
+    thumbnailUrl?: string;
   };
-  currentRole: string;
-  currentCompanyId?: string;
-  companies: { id: string; company_name: string }[];
-  users: { id: string; displayName: string; employeeId: string }[];
 };
 
-export function ArchiveForm({
-  archive,
-  currentRole,
-  currentCompanyId,
-  companies,
-  users,
-}: ArchiveFormProps) {
+export function ArchiveForm({ archive }: ArchiveFormProps) {
   const [title, setTitle] = useState(archive?.title || "");
   const [description, setDescription] = useState(archive?.description || "");
-  const [youtubeUrl, setYoutubeUrl] = useState(archive?.youtube_url || "");
-  const [thumbnailUrl, setThumbnailUrl] = useState(archive?.thumbnail_url || "");
-  const [targetType, setTargetType] = useState<string>(archive?.target_type || "company");
-  const [targetId, setTargetId] = useState<string>(archive?.target_id || "");
+  const [youtubeUrl, setYoutubeUrl] = useState(
+    archive?.youtubeId ? `https://www.youtube.com/watch?v=${archive.youtubeId}` : ""
+  );
+  const [thumbnailUrl, setThumbnailUrl] = useState(archive?.thumbnailUrl || "");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-
-  // adminの場合、企業は自社固定
-  const availableCompanies = currentRole === "superadmin"
-    ? companies
-    : companies.filter((c) => c.id === currentCompanyId);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
 
+    const youtubeId = extractYouTubeId(youtubeUrl);
+    if (!youtubeId) {
+      setError("有効な YouTube URL を入力してください");
+      setLoading(false);
+      return;
+    }
+
     const data = {
       title,
       description,
-      youtube_url: youtubeUrl,
-      thumbnail_url: (thumbnailUrl && thumbnailUrl !== "none") ? thumbnailUrl : "",
-      target_type: targetType,
-      target_id: targetId,
+      youtubeId,
+      thumbnailUrl: thumbnailUrl !== "none" ? thumbnailUrl : "",
     };
 
-    const url = archive
-      ? `/api/admin/archives/${archive.id}`
-      : "/api/admin/archives";
+    const url = archive ? `/api/admin/archives/${archive.id}` : "/api/admin/archives";
     const method = archive ? "PUT" : "POST";
 
     try {
@@ -120,7 +107,7 @@ export function ArchiveForm({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="youtubeUrl">YouTube URL</Label>
+        <Label htmlFor="youtubeUrl">YouTube URL（限定公開）</Label>
         <Input
           id="youtubeUrl"
           value={youtubeUrl}
@@ -154,56 +141,9 @@ export function ArchiveForm({
         </div>
         {thumbnailUrl && thumbnailUrl !== "none" && (
           <div className="border rounded-lg overflow-hidden w-64">
-            <img
-              src={thumbnailUrl}
-              alt="サムネイルプレビュー"
-              className="w-full aspect-video object-cover"
-            />
+            <img src={thumbnailUrl} alt="サムネイルプレビュー" className="w-full aspect-video object-cover" />
           </div>
         )}
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="targetType">対象種別</Label>
-        <Select
-          value={targetType}
-          onValueChange={(v) => {
-            setTargetType(v);
-            setTargetId("");
-          }}
-        >
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="company">企業</SelectItem>
-            <SelectItem value="user">ユーザー</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="targetId">
-          {targetType === "company" ? "対象企業" : "対象ユーザー"}
-        </Label>
-        <Select value={targetId} onValueChange={setTargetId}>
-          <SelectTrigger>
-            <SelectValue placeholder="選択してください" />
-          </SelectTrigger>
-          <SelectContent>
-            {targetType === "company"
-              ? availableCompanies.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.company_name}
-                  </SelectItem>
-                ))
-              : users.map((u) => (
-                  <SelectItem key={u.id} value={u.id}>
-                    {u.displayName || u.employeeId}
-                  </SelectItem>
-                ))}
-          </SelectContent>
-        </Select>
       </div>
 
       <div className="space-y-2">
@@ -224,16 +164,10 @@ export function ArchiveForm({
       )}
 
       <div className="flex gap-4">
-        <Button type="submit" disabled={loading || !targetId}>
-          {loading
-            ? archive ? "更新中..." : "登録中..."
-            : archive ? "更新" : "登録"}
+        <Button type="submit" disabled={loading}>
+          {loading ? (archive ? "更新中..." : "登録中...") : archive ? "更新" : "登録"}
         </Button>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => router.push("/admin/archives")}
-        >
+        <Button type="button" variant="outline" onClick={() => router.push("/admin/archives")}>
           キャンセル
         </Button>
       </div>

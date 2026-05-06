@@ -1,19 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Query } from "node-appwrite";
-import { requireLevelAccess } from "@/lib/appwrite/auth-guard";
-import { createAdminClient, getUserEmployeeId } from "@/lib/appwrite/server";
-import {
-  APPWRITE_DATABASE_ID,
-  APPWRITE_VIDEOS_COLLECTION_ID,
-  APPWRITE_WATCH_PROGRESS_COLLECTION_ID,
-} from "@/lib/appwrite/config";
+import { requireLevelAccess } from "@/lib/firebase/auth-guard";
+import { adminDb } from "@/lib/firebase/admin";
 import { Header } from "@/components/header";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { YouTubePlayer } from "@/components/youtube-player";
 import { LEVEL_LABELS, LEVEL_COLORS } from "@/lib/types";
-import { extractYouTubeId } from "@/lib/youtube";
 import type { Video } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -26,41 +19,24 @@ export default async function VideoPlayerPage({
   const { level, id } = await params;
 
   const typedLevel = level as Video["level"];
-  const { user, role } = await requireLevelAccess(typedLevel);
-  const employeeId = await getUserEmployeeId(user.$id);
+  const user = await requireLevelAccess(typedLevel);
 
-  const { databases } = createAdminClient();
+  const db = adminDb();
+  const videoDoc = await db.collection("videos").doc(id).get();
+  if (!videoDoc.exists) notFound();
 
-  let video;
-  try {
-    video = await databases.getDocument(
-      APPWRITE_DATABASE_ID,
-      APPWRITE_VIDEOS_COLLECTION_ID,
-      id
-    );
-  } catch {
-    notFound();
-  }
+  const video = { id: videoDoc.id, ...videoDoc.data() } as Video;
 
-  const videoYtId = extractYouTubeId(video.youtube_url);
+  const progressDoc = await db.collection("userProgress").doc(user.uid).get();
+  const watchedMap: Record<string, { watched: boolean; progress?: number }> =
+    progressDoc.exists ? (progressDoc.data()?.watched ?? {}) : {};
 
-  // 視聴進捗を取得
-  const progressRes = await databases.listDocuments(
-    APPWRITE_DATABASE_ID,
-    APPWRITE_WATCH_PROGRESS_COLLECTION_ID,
-    [
-      Query.equal("user_id", user.$id),
-      Query.equal("video_id", id),
-      Query.limit(1),
-    ]
-  );
-  const progressDoc = progressRes.documents[0];
-  const watched = progressDoc?.watched || false;
-  const currentProgress = progressDoc?.progress || 0;
+  const currentProgress = watchedMap[id]?.progress ?? 0;
+  const watched = watchedMap[id]?.watched ?? false;
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <Header email={user!.email} role={role} employeeId={employeeId} />
+      <Header email={user.email} role={user.role} displayName={user.displayName} />
       <main className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="mb-6">
           <Link href={`/videos/${level}`} className="text-sm text-blue-600 hover:underline">
@@ -69,13 +45,11 @@ export default async function VideoPlayerPage({
         </div>
 
         <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-          {videoYtId && (
-            <YouTubePlayer
-              videoId={videoYtId}
-              videoDbId={id}
-              initialProgress={currentProgress}
-            />
-          )}
+          <YouTubePlayer
+            videoId={video.youtubeId}
+            videoDbId={id}
+            initialProgress={currentProgress}
+          />
 
           <div className="p-6">
             <div className="flex items-center gap-3 mb-4">

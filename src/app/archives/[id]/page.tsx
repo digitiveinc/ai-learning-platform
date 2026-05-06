@@ -1,13 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireAuth } from "@/lib/appwrite/auth-guard";
-import { createAdminClient, getUserEmployeeId, getUserSettings } from "@/lib/appwrite/server";
-import {
-  APPWRITE_DATABASE_ID,
-  APPWRITE_ARCHIVES_COLLECTION_ID,
-} from "@/lib/appwrite/config";
+import { requireAuth } from "@/lib/firebase/auth-guard";
+import { adminDb } from "@/lib/firebase/admin";
 import { Header } from "@/components/header";
-import { extractYouTubeId } from "@/lib/youtube";
+import type { Archive } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -17,43 +13,17 @@ export default async function ArchiveViewPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { user, role, companyId } = await requireAuth();
-  const employeeId = await getUserEmployeeId(user.$id);
-  const settings = await getUserSettings(user.$id);
-  const displayName = settings?.display_name || employeeId;
+  const user = await requireAuth();
 
-  const { databases } = createAdminClient();
-  if (!APPWRITE_ARCHIVES_COLLECTION_ID) {
-    notFound();
-  }
+  const db = adminDb();
+  const archiveDoc = await db.collection("archives").doc(id).get();
+  if (!archiveDoc.exists) notFound();
 
-  let archive;
-  try {
-    archive = await databases.getDocument(
-      APPWRITE_DATABASE_ID,
-      APPWRITE_ARCHIVES_COLLECTION_ID,
-      id
-    );
-  } catch {
-    notFound();
-  }
-
-  // アクセス権限チェック（管理者はスキップ）
-  if (role !== "admin" && role !== "superadmin") {
-    const hasAccess =
-      (archive.target_type === "company" && archive.target_id === companyId) ||
-      (archive.target_type === "user" && archive.target_id === user.$id);
-
-    if (!hasAccess) {
-      notFound();
-    }
-  }
-
-  const videoId = extractYouTubeId(archive.youtube_url);
+  const archive = { id: archiveDoc.id, ...archiveDoc.data() } as Archive;
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <Header email={user.email} role={role} employeeId={employeeId} displayName={displayName} />
+      <Header email={user.email} role={user.role} displayName={user.displayName} />
       <main className="container mx-auto px-4 py-8">
         <Link href="/" className="text-sm text-blue-600 hover:underline">
           &larr; ダッシュボードに戻る
@@ -75,9 +45,9 @@ export default async function ArchiveViewPage({
           )}
 
           <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-black shadow-lg">
-            {videoId ? (
+            {archive.youtubeId ? (
               <iframe
-                src={`https://www.youtube.com/embed/${videoId}`}
+                src={`https://www.youtube.com/embed/${archive.youtubeId}`}
                 title={archive.title}
                 className="absolute inset-0 w-full h-full"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -91,7 +61,7 @@ export default async function ArchiveViewPage({
           </div>
 
           <div className="mt-4 text-sm text-slate-400">
-            作成日: {new Date(archive.created_at).toLocaleDateString("ja-JP")}
+            作成日: {new Date(archive.createdAt).toLocaleDateString("ja-JP")}
           </div>
         </div>
       </main>

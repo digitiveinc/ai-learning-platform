@@ -1,72 +1,77 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { APPWRITE_ENDPOINT, APPWRITE_PROJECT_ID, APPWRITE_API_KEY } from "@/lib/appwrite/config";
-import { employeeIdToEmail } from "@/lib/appwrite/employee-id";
-import { getCompanyByCode } from "@/lib/appwrite/server";
+import { adminAuth, adminDb } from "@/lib/firebase/admin";
+
+const SESSION_EXPIRES_MS = 14 * 24 * 60 * 60 * 1000; // 14日
 
 export async function POST(request: Request) {
-  const { companyCode, employeeId, password } = await request.json();
-
-  if (!companyCode || !employeeId || !password) {
-    return NextResponse.json(
-      { error: "企業コード、社員ID、パスワードは必須です" },
-      { status: 400 }
-    );
+  const { idToken } = await request.json();
+  if (!idToken) {
+    return NextResponse.json({ error: "idToken が必要です" }, { status: 400 });
   }
-
-  // 企業コード検証
-  const company = await getCompanyByCode(companyCode);
-  if (!company) {
-    return NextResponse.json(
-      { error: "企業コードが正しくありません" },
-      { status: 401 }
-    );
-  }
-  if (!company.is_active) {
-    return NextResponse.json(
-      { error: "この企業アカウントは無効です" },
-      { status: 403 }
-    );
-  }
-
-  const email = employeeIdToEmail(employeeId, companyCode);
 
   try {
-    const res = await fetch(`${APPWRITE_ENDPOINT}/account/sessions/email`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-appwrite-project": APPWRITE_PROJECT_ID,
-        "x-appwrite-key": APPWRITE_API_KEY,
-      },
-      body: JSON.stringify({ email, password }),
-    });
+    const decoded = await adminAuth().verifyIdToken(idToken);
+    const uid = decoded.uid;
+    const email = decoded.email ?? "";
 
-    const data = await res.json();
+    const db = adminDb();
+    const userDoc = await db.collection("users").doc(uid).get();
 
-    if (!res.ok) {
-      console.error("Appwrite login error:", JSON.stringify(data));
-      return NextResponse.json(
-        { error: "社員IDまたはパスワードが正しくありません" },
-        { status: 401 }
-      );
+    let role = "user";
+    let level = "beginner";
+    let accessMode = "cumulative";
+    let displayName = decoded.name ?? email;
+
+    if (userDoc.exists) {
+      const data = userDoc.data()!;
+      role = data.role ?? "user";
+      level = data.level ?? "beginner";
+      accessMode = data.accessMode ?? "cumulative";
+      displayName = data.displayName ?? displayName;
+    } else {
+      // 初回ログイン：メールアドレスで事前登録済みレコードを検索
+      const emailQuery = await db
+        .collection("users")
+        .where("email", "==", email)
+        .limit(1)
+        .get();
+
+      if (!emailQuery.empty) {
+        const existing = emailQuery.docs[0];
+        const data = existing.data();
+        role = data.role ?? "user";
+        level = data.level ?? "beginner";
+        accessMode = data.accessMode ?? "cumulative";
+        displayName = data.displayName ?? displayName;
+
+        await db.collection("users").doc(uid).set({ ...data, uid, email });
+      } else {
+        return NextResponse.json(
+          { error: "このアカウントはまだ登録されていません。管理者にお問い合わせください。" },
+          { status: 403 }
+        );
+      }
     }
 
-    const cookieStore = await cookies();
-    cookieStore.set("appwrite-session", data.secret, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 30,
+    await adminAuth().setCustomUserClaims(uid, { role, level, accessMode, displayName });
+
+    const sessionCookie = await adminAuth().createSessionCookie(idToken, {
+      expiresIn: SESSION_EXPIRES_MS,
     });
 
-    return NextResponse.json({ success: true });
+    const cookieStore = await cookies();
+    cookieStore.set("__session", sessionCookie, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: SESSION_EXPIRES_MS / 1000,
+    });
+
+    return NextResponse.json({ success: true, role });
   } catch (err) {
     console.error("Login error:", err);
-    return NextResponse.json(
-      { error: "ログインに失敗しました" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "ログインに失敗しました" }, { status: 500 });
   }
 }

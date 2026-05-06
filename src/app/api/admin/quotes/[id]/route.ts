@@ -20,24 +20,20 @@ export async function GET(
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   }
 
+  const role = user.role as string | undefined;
+  if (role !== "admin" && role !== "superadmin") {
+    return NextResponse.json({ error: "管理者権限が必要です" }, { status: 403 });
+  }
+
   const { id } = await params;
   const db = adminDb();
-  const doc = await db.collection("inquiries").doc(id).get();
+  const doc = await db.collection("quotes").doc(id).get();
 
   if (!doc.exists) {
     return NextResponse.json({ error: "見つかりません" }, { status: 404 });
   }
 
-  const data = doc.data()!;
-
-  // 本人または admin/superadmin のみ参照可能
-  const role = user.role as string | undefined;
-  const isAdmin = role === "admin" || role === "superadmin";
-  if (data.userId !== user.uid && !isAdmin) {
-    return NextResponse.json({ error: "権限がありません" }, { status: 403 });
-  }
-
-  return NextResponse.json({ id: doc.id, ...data });
+  return NextResponse.json({ id: doc.id, ...doc.data() });
 }
 
 export async function PUT(
@@ -56,14 +52,13 @@ export async function PUT(
 
   const { id } = await params;
   const body = await request.json();
-  const { status, replyMessage, repliedAt, repliedBy } = body;
+  const { text, author, publishDate } = body;
 
   const db = adminDb();
-  await db.collection("inquiries").doc(id).update({
-    ...(status !== undefined && { status }),
-    ...(replyMessage !== undefined && { replyMessage }),
-    ...(repliedAt !== undefined && { repliedAt }),
-    ...(repliedBy !== undefined && { repliedBy }),
+  await db.collection("quotes").doc(id).update({
+    ...(text !== undefined && { text }),
+    ...(author !== undefined && { author }),
+    ...(publishDate !== undefined && { publishDate }),
   });
 
   return NextResponse.json({ success: true });
@@ -85,7 +80,7 @@ export async function DELETE(
 
   const { id } = await params;
   const db = adminDb();
-  await db.collection("inquiries").doc(id).delete();
+  await db.collection("quotes").doc(id).delete();
 
   return NextResponse.json({ success: true });
 }

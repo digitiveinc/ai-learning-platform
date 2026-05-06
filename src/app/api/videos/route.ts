@@ -1,36 +1,62 @@
 import { NextResponse } from "next/server";
-import { ID } from "node-appwrite";
-import { getUser, getUserRole, createAdminClient } from "@/lib/appwrite/server";
-import { APPWRITE_DATABASE_ID, APPWRITE_VIDEOS_COLLECTION_ID } from "@/lib/appwrite/config";
+import { cookies } from "next/headers";
+import { adminAuth, adminDb } from "@/lib/firebase/admin";
 
-export async function POST(request: Request) {
-  const user = await getUser();
+async function getAuthUser() {
+  const cookieStore = await cookies();
+  const session = cookieStore.get("__session")?.value;
+  if (!session) return null;
+  try {
+    return await adminAuth().verifySessionCookie(session, true);
+  } catch { return null; }
+}
+
+export async function GET() {
+  const user = await getAuthUser();
   if (!user) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   }
 
-  const role = await getUserRole(user.$id);
-  if (role !== "admin") {
+  const db = adminDb();
+  const snapshot = await db.collection("videos").orderBy("sortOrder").get();
+
+  const videos = snapshot.docs.map((d) => ({
+    id: d.id,
+    ...d.data(),
+  }));
+
+  return NextResponse.json({ videos });
+}
+
+export async function POST(request: Request) {
+  const user = await getAuthUser();
+  if (!user) {
+    return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+  }
+
+  const role = user.role as string | undefined;
+  if (role !== "admin" && role !== "superadmin") {
     return NextResponse.json({ error: "権限がありません" }, { status: 403 });
   }
 
   const body = await request.json();
-  const { databases } = createAdminClient();
+  const { title, youtubeId, description, level, sortOrder } = body;
 
-  const doc = await databases.createDocument(
-    APPWRITE_DATABASE_ID,
-    APPWRITE_VIDEOS_COLLECTION_ID,
-    ID.unique(),
-    {
-      title: body.title,
-      youtube_url: body.youtube_url,
-      thumbnail_url: body.thumbnail_url || "",
-      level: body.level,
-      description: body.description || "",
-      sort_order: body.sort_order || 0,
-      created_by: user.$id,
-    }
-  );
+  if (!title || !youtubeId) {
+    return NextResponse.json({ error: "必須項目を入力してください" }, { status: 400 });
+  }
 
-  return NextResponse.json({ success: true, id: doc.$id });
+  const db = adminDb();
+  const ref = db.collection("videos").doc();
+  await ref.set({
+    title,
+    youtubeId,
+    description: description || "",
+    level: level || "",
+    sortOrder: sortOrder ?? 0,
+    createdAt: new Date().toISOString(),
+    createdBy: user.uid,
+  });
+
+  return NextResponse.json({ success: true, id: ref.id });
 }

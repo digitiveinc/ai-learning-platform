@@ -1,17 +1,11 @@
 import Link from "next/link";
-import { Query } from "node-appwrite";
-import { requireAuth } from "@/lib/appwrite/auth-guard";
-import { createAdminClient, getUserAccessibleLevels, getUserEmployeeId, getUserSettings } from "@/lib/appwrite/server";
-import {
-  APPWRITE_DATABASE_ID,
-  APPWRITE_VIDEOS_COLLECTION_ID,
-  APPWRITE_WATCH_PROGRESS_COLLECTION_ID,
-  APPWRITE_ARCHIVES_COLLECTION_ID,
-} from "@/lib/appwrite/config";
+import { requireAuth } from "@/lib/firebase/auth-guard";
+import { adminDb } from "@/lib/firebase/admin";
 import { Header } from "@/components/header";
 import { ProgressBar } from "@/components/progress-bar";
 import { ArchiveCard } from "@/components/archive-card";
-import type { Video } from "@/lib/types";
+import { getAccessibleLevels } from "@/lib/types";
+import type { Video, Archive } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -85,42 +79,29 @@ function LevelIcon({ type, className }: { type: string; className?: string }) {
 }
 
 export default async function DashboardPage() {
-  type ArchiveDoc = {
-    $id: string;
-    title: string;
-    description?: string;
-    youtube_url: string;
-    thumbnail_url?: string;
-    created_at: string;
-  };
+  const user = await requireAuth();
+  const accessibleLevels = getAccessibleLevels(user.level, user.accessMode);
 
-  const { user, role, companyId } = await requireAuth();
+  const db = adminDb();
 
-  const accessibleLevels = await getUserAccessibleLevels(user.$id);
-  const employeeId = await getUserEmployeeId(user.$id);
-  const settings = await getUserSettings(user.$id);
-  const displayName = settings?.display_name || employeeId;
+  // 全動画取得
+  const videosSnap = await db.collection("videos").get();
+  // ユーザーの視聴進捗
+  const progressDoc = await db.collection("userProgress").doc(user.uid).get();
+  const watchedMap: Record<string, { watched: boolean; progress?: number }> =
+    progressDoc.exists ? (progressDoc.data()?.watched ?? {}) : {};
 
-  const { databases } = createAdminClient();
+  // アーカイブ（最新20件）
+  const archivesSnap = await db.collection("archives").orderBy("createdAt", "desc").limit(20).get();
+  const archives = archivesSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Archive));
 
-  const videosRes = await databases.listDocuments(
-    APPWRITE_DATABASE_ID,
-    APPWRITE_VIDEOS_COLLECTION_ID,
-    [Query.limit(500)]
-  );
-
-  const progressRes = await databases.listDocuments(
-    APPWRITE_DATABASE_ID,
-    APPWRITE_WATCH_PROGRESS_COLLECTION_ID,
-    [Query.equal("user_id", user.$id), Query.equal("watched", true), Query.limit(500)]
-  );
-  const watchedVideoIds = new Set(progressRes.documents.map((d) => d.video_id));
-
+  // レベル別カウント集計
   const videoCounts: Record<string, number> = {};
   const watchedCounts: Record<string, number> = {};
-  videosRes.documents.forEach((v) => {
+  videosSnap.docs.forEach((doc) => {
+    const v = doc.data() as Video;
     videoCounts[v.level] = (videoCounts[v.level] || 0) + 1;
-    if (watchedVideoIds.has(v.$id)) {
+    if (watchedMap[doc.id]?.watched === true) {
       watchedCounts[v.level] = (watchedCounts[v.level] || 0) + 1;
     }
   });
@@ -129,39 +110,9 @@ export default async function DashboardPage() {
   const totalWatched = accessibleLevels.reduce((sum, l) => sum + (watchedCounts[l] || 0), 0);
   const totalPercent = totalVideos === 0 ? 0 : Math.round((totalWatched / totalVideos) * 100);
 
-  const archiveQueries = [Query.orderDesc("created_at"), Query.limit(500)];
-  let archives: ArchiveDoc[] = [];
-
-  // コレクション未設定の環境ではアーカイブ表示を無効化
-  if (APPWRITE_ARCHIVES_COLLECTION_ID) {
-    const archiveResults: ArchiveDoc[] = [];
-
-    if (companyId) {
-      const companyArchives = await databases.listDocuments(
-        APPWRITE_DATABASE_ID,
-        APPWRITE_ARCHIVES_COLLECTION_ID,
-        [...archiveQueries, Query.equal("target_type", "company"), Query.equal("target_id", companyId)]
-      );
-      archiveResults.push(...(companyArchives.documents as unknown as ArchiveDoc[]));
-    }
-
-    const userArchives = await databases.listDocuments(
-      APPWRITE_DATABASE_ID,
-      APPWRITE_ARCHIVES_COLLECTION_ID,
-      [...archiveQueries, Query.equal("target_type", "user"), Query.equal("target_id", user.$id)]
-    );
-    archiveResults.push(...(userArchives.documents as unknown as ArchiveDoc[]));
-
-    // 重複排除＆日付順ソート
-    const archiveMap = new Map(archiveResults.map((d) => [d.$id, d]));
-    archives = Array.from(archiveMap.values()).sort(
-      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    );
-  }
-
   return (
     <div className="min-h-screen bg-slate-50">
-      <Header email={user.email} role={role} employeeId={employeeId} displayName={displayName} />
+      <Header email={user.email} role={user.role} displayName={user.displayName} />
 
       {/* Hero area */}
       <div className="relative bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 text-white overflow-hidden">
@@ -179,7 +130,7 @@ export default async function DashboardPage() {
             <div>
               <p className="text-indigo-300 text-sm font-medium mb-1">AI Learning Platform</p>
               <h1 className="text-3xl font-bold">
-                おかえりなさい、<span className="text-indigo-300">{displayName}</span>さん
+                おかえりなさい、<span className="text-indigo-300">{user.displayName}</span>さん
               </h1>
               <p className="text-slate-400 mt-2">
                 レベルを選択して学習を始めましょう。
@@ -267,12 +218,12 @@ export default async function DashboardPage() {
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {archives.map((a) => (
                 <ArchiveCard
-                  key={a.$id}
-                  id={a.$id}
+                  key={a.id}
+                  id={a.id}
                   title={a.title}
                   description={a.description || ""}
-                  youtubeUrl={a.youtube_url}
-                  thumbnailUrl={a.thumbnail_url || undefined}
+                  youtubeId={a.youtubeId}
+                  thumbnailUrl={a.thumbnailUrl}
                 />
               ))}
             </div>

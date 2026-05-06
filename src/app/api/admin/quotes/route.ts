@@ -23,14 +23,14 @@ export async function GET() {
   }
 
   const db = adminDb();
-  const snapshot = await db.collection("archives").orderBy("createdAt", "desc").get();
+  const snapshot = await db.collection("quotes").orderBy("publishDate", "desc").get();
 
-  const archives = snapshot.docs.map((d) => ({
+  const quotes = snapshot.docs.map((d) => ({
     id: d.id,
     ...d.data(),
   }));
 
-  return NextResponse.json({ archives });
+  return NextResponse.json({ quotes });
 }
 
 export async function POST(request: Request) {
@@ -45,22 +45,21 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  const { title, youtubeId, description, thumbnailUrl } = body;
+  const { text, author, publishDate } = body;
 
-  if (!title || !youtubeId) {
+  if (!text || !author || !publishDate) {
     return NextResponse.json({ error: "必須項目を入力してください" }, { status: 400 });
   }
 
+  // publishDate は YYYY-MM-DD 形式。document ID として使用する
   const db = adminDb();
-  const ref = db.collection("archives").doc();
-  await ref.set({
-    title,
-    youtubeId,
-    description: description || "",
-    thumbnailUrl: thumbnailUrl || "",
+  await db.collection("quotes").doc(publishDate).set({
+    text,
+    author,
+    publishDate,
     createdAt: new Date().toISOString(),
     createdBy: user.uid,
   });
 
-  return NextResponse.json({ success: true, id: ref.id });
+  return NextResponse.json({ success: true, id: publishDate });
 }

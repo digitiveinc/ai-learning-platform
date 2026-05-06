@@ -55,13 +55,19 @@ export function VideoForm({ video }: VideoFormProps) {
     setLoading(true);
     setError("");
 
+    // URL から YouTube ID を抽出
+    const ytIdMatch = youtubeUrl.match(
+      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/
+    );
+    const youtubeId = ytIdMatch ? ytIdMatch[1] : youtubeUrl.trim();
+
     const data = {
       title,
-      youtube_url: youtubeUrl,
-      thumbnail_url: (thumbnailUrl && thumbnailUrl !== "none") ? thumbnailUrl : "",
+      youtubeId,
+      thumbnailUrl: (thumbnailUrl && thumbnailUrl !== "none") ? thumbnailUrl : "",
       level,
       description,
-      sort_order: parseInt(sortOrder) || 0,
+      sortOrder: parseInt(sortOrder) || 0,
     };
 
     const url = video ? `/api/videos/${video.id}` : "/api/videos";

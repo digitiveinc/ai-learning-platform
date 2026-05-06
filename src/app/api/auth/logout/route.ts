@@ -1,19 +1,21 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { createSessionClient } from "@/lib/appwrite/server";
+import { adminAuth } from "@/lib/firebase/admin";
 
 export async function POST() {
-  try {
-    const sessionClient = await createSessionClient();
-    if (sessionClient) {
-      await sessionClient.account.deleteSession("current");
+  const cookieStore = await cookies();
+  const session = cookieStore.get("__session")?.value;
+
+  if (session) {
+    try {
+      const decoded = await adminAuth().verifySessionCookie(session);
+      await adminAuth().revokeRefreshTokens(decoded.uid);
+    } catch {
+      // 無効なセッションでも続行
     }
-  } catch {
-    // セッションが無効でもOK
   }
 
-  const cookieStore = await cookies();
-  cookieStore.set("appwrite-session", "", {
+  cookieStore.set("__session", "", {
     httpOnly: true,
     secure: true,
     sameSite: "lax",
